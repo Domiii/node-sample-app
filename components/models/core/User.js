@@ -128,14 +128,15 @@ module.exports = NoGapDef.component({
                         },
 
                         onAfterSync: function(models) {
+                            var tableName = models.User.getTableName();
                             return Promise.join(
                                 // create indices
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['uid'], { indexOptions: 'UNIQUE'}),
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['gid']),
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['role']),
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['name'], { indexOptions: 'UNIQUE'}),
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['fullName']),
-                                SequelizeUtil.createIndexIfNotExists('bjt_user', ['studentId'], { indexOptions: 'UNIQUE'})
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['uid'], { indexOptions: 'UNIQUE'}),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['gid']),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['role']),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['name'], { indexOptions: 'UNIQUE'}),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['fullName']),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['studentId'], { indexOptions: 'UNIQUE'})
                             );
                         }
                     }
@@ -352,7 +353,7 @@ module.exports = NoGapDef.component({
                         .then(function(user) {
                             if (!user) {
                                 // could not login -> Invalid session (or rather, User could not be found)
-                                console.warn('Unable to login user from session -- ' + (err || ('invalid session ID')));
+                                console.warn('Unable to login user from session -- invalid session ID');
                                 delete sess.uid;    // delete uid from session
 
                                 return loginAsGuest.call(this);
@@ -535,7 +536,7 @@ module.exports = NoGapDef.component({
 
                         if (!localizer.localeExists(locale)) {
                             // unknown locale -> fall back to system default
-                            locale = Instance.BJTConfig.getValue('defaultLocale');
+                            locale = Instance.AppConfig.getValue('defaultLocale');
                         }
                     }
                 }

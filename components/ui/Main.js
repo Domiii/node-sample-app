@@ -78,17 +78,18 @@ module.exports = NoGapDef.component({
                 // enable these components on the client initially
                 // NOTE: This causes other operations which might not finish instantly!
                 return this.Tools.requestClientComponents(
-                    // Core stuff
+                    // Core components
+                    'AppConfig',
                     'User',
 
-                    // utilities
+                    // Utility components
                     'CacheUtil',
                     'MiscUtil',
                     'Localizer',
                     'Log',
                     'ValidationUtil',
 
-                    // base UI elements
+                    // baseline UI elements
                     'UIMgr', 'Main')
                 .then(function() {
                     // send default localizer to client

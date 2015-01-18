@@ -76,6 +76,7 @@ var config = {
             'util/CacheUtil',
 
             // core components
+            'models/core/AppConfig',
             'models/core/User',
 
             // misc utilities
