@@ -1,0 +1,471 @@
+/**
+ * The Main component is the base component for logged in users.
+ */
+"use strict";
+ 
+
+var NoGapDef = require('nogap').Def;
+
+
+
+module.exports = NoGapDef.component({
+    Namespace: 'bjt',
+    
+    Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) { return {
+        Assets: {
+            AutoIncludes: {
+                js: [
+                    // bootstrap's logic (requires jquery, which is included by UIMgr)
+                    'lib/bootstrap/bootstrap.3.1.1.min.js',
+
+                    /**
+                     * Some fancy UI elements for Angular + Bootstrap.
+                     * @see http://angular-ui.github.io/bootstrap/
+                     */
+                    'lib/angular/ui-bootstrap-tpls-0.11.2',
+
+                    // lodash for all kinds of stuff
+                    'lib/lodash.min',
+
+                    // URI.js for working with URLs
+                    'lib/URI',
+
+                    // moment.js for working with time, dates and timespans
+                    'lib/moment',
+                    
+                    // squishy for classes, enums and some other goodies
+                    'js/squishy/squishy',
+                    'js/squishy/squishy.util',
+                    'js/squishy/squishy.domUtil',
+                    'js/squishy/squishy.AngularUtil',
+
+                    // some DOM + UI utilities
+                    'js/DomUtil',
+                    'js/angular_ui/timespan-picker',
+                    
+                ],
+                css: [
+                    // bootstrap & font-awesome makes things look pretty
+                    'lib/bootstrap/bootstrap.min.css',
+                    //'//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css',
+                    'lib/font-awesome/css/font-awesome.min.css',
+                    //'//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css',
+
+                    // normalize makes the entire page look equivalent across all browsers
+                    'lib/normalize.css',
+
+                    // custom styles
+                    'css/styles.css'
+                ]
+            }
+        },
+
+        initHost: function() {
+            // load default localization files
+            var localizerCfg = {
+                langDir: 'lang'
+            };
+            Shared.Localizer.Default = Shared.Localizer.createLocalizer(localizerCfg);
+        },
+        
+        Private: {
+            __ctor: function() {
+                // this.Instance.User.events.login.addListener(this.onUserPrivChanged.bind(this));
+                // this.Instance.User.events.logout.addListener(this.onUserPrivChanged.bind(this));
+            },
+
+            onNewClient: function() {
+                // enable these components on the client initially
+                // NOTE: This causes other operations which might not finish instantly!
+                return this.Tools.requestClientComponents(
+                    // Core stuff
+                    'User',
+
+                    // utilities
+                    'CacheUtil',
+                    'MiscUtil',
+                    'Localizer',
+                    'Log',
+                    'ValidationUtil',
+
+                    // base UI elements
+                    'UIMgr', 'Main')
+                .then(function() {
+                    // send default localizer to client
+                    this.client.setDefaultLocalizer(Shared.Localizer.Default);
+                }.bind(this));
+            },
+
+            /**
+             * This is called after `onNewClient`
+             */
+            onClientBootstrap: function() {
+                // explicitely install caches
+                this.Instance.CacheUtil.initCaches();
+
+                // check if User cache is present
+                console.assert(this.Instance.User.users, 'INTERNAL ERROR: Cache installation failed.');
+
+                // resume user session
+                return this.Instance.User.resumeSession();
+            },
+
+
+            /**
+             * This method is fired on every privilege level change and on every page refresh
+             */
+            onUserPrivChanged: function() {
+                this.client.onUserPrivChanged();
+            }
+        }
+    };}),
+    
+
+    
+    Client: NoGapDef.defClient(function (Tools, Instance, Context) {
+
+        // ####################################################################################################################
+        // misc variables
+
+        var UserRole;
+
+        /**
+         * The main Angular module (aka. the Angular app).
+         */
+        var app;
+
+
+        // ####################################################################################################################
+        // page groups & pages
+
+        // We have two groups of pages
+        var _defaultPageGroups = [
+        	/**
+        	 * Guest clients get access to these components.
+        	 */
+            {
+                pageComponents: [
+                    'GuestPage'
+                ],
+                mayActivate: function() {
+                    return !Instance.User.currentUser;
+                }
+            },
+
+        	/**
+        	 * Logged in users get access to these components
+        	 */
+            {
+                pageComponents: [
+                    'HomePage'
+                ],
+
+                /**
+                 * Other non-page components to be loaded when this group is loaded
+                 */
+                otherComponents: [
+                ],
+
+                mayActivate: function() {
+                    return Instance.User.currentUser && Instance.User.currentUser.displayRole >= UserRole.Student;
+                }
+            },
+
+
+            /**
+             * Staff gets access to these additional components
+             */
+            {
+                pageComponents: [
+                ],
+
+                mayActivate: function() {
+                    return Instance.User.isStaff();
+                }
+            }
+        ];
+
+        /**
+         * Page group initializor is called by `initClient`.
+         */
+        var initDefaultPageGroups = function() {
+            _defaultPageGroups.forEach(function(group) {
+                Instance.UIMgr.addPageGroup(group);
+            });
+        };
+
+        // #########################################################################################################
+        // Add some useful directives to our angular app
+        // TODO: Move to it's own file(s)
+
+        var addDirectives = function(app) {
+            // localizer directive
+            app.directive('localize', function() {
+                var localizer = Instance.Localizer.Default;
+                function linkFun($scope, element, attrs) {
+                    AngularUtil.decorateScope($scope);
+                    
+                    function lookupTranslation() {
+                        if (!attrs.key && !attrs.hasOwnProperty('canBeEmpty')) {
+                            // key is missing - We need some extra debugging info to find the culprit:
+                            var key = attrs.key;
+                            var rawHtml = element.parent().html();
+                            setTimeout(function() {
+                                var msg = 'Invalid `localize` directive.\n';
+                                if (!key) {
+                                    msg += 'Empty `key` attribute ';
+                                }
+                                else {
+                                    msg += 'Interpolated `key` attribute `' + key + '` evaluated to empty string ';
+                                }
+                                msg += 'on page `' + $scope.pageState.name + '`:\n';
+                                msg += rawHtml;
+                                console.error(msg);
+
+                                // go to page
+                                $scope.gotoPage($scope.pageState.name);
+
+                                // highlight parent element
+                                // TODO: Parent element might not be visible
+                                dimAllAndHighlightOne(element.parent());
+                            });
+                            return;
+                        }
+
+                        if (attrs.key) {
+                            // actual translation
+                            var key = attrs.key;
+                            var args = $scope.$eval(attrs.args);
+                            var locale = attrs.locale;
+                            
+                            $scope.translation = localizer.lookUpLocale(locale, key, args);
+                        }
+                        else {
+                            $scope.translation = '';
+                        }
+                    }
+
+                    // lookup translation
+                    lookupTranslation();
+
+                    // re-compute value if locale or args change
+                    attrs.$observe('key', lookupTranslation);
+                    attrs.$observe('args', lookupTranslation);
+                    $scope.$watch('locale', lookupTranslation);
+                }
+
+                return {
+                    restrict: 'AE',
+                    replace: true,
+                    transclude: true,
+                    template: '<span localized="1">{{translation}}</span>',
+                    scope: true,
+                    link: linkFun
+                };
+            });
+
+            // Allows easily binding to the enter event
+            // see: http://stackoverflow.com/questions/17470790/how-to-use-a-keypress-event-in-angularjs
+            app.directive('ngEnter', function () {
+                return function ($scope, $element, $attrs) {
+                    $element.bind("keydown keypress", function (event) {
+                        if(event.which === 13) {
+                            $scope.$eval($attrs.ngEnter);
+                            event.preventDefault();
+                        }
+                    });
+                };
+            });
+
+            // Execute some code
+            app.directive('code', function () {
+                return function ($scope, $element, $attrs) {
+                    // run code on every digest cycle
+                    // see: http://stackoverflow.com/questions/17887869/execute-function-after-every-digest-loop-before-dom-render
+                    $scope.$watch(function() {
+                        // run code
+                        $scope.$eval($attrs.code);
+                    });
+                };
+            });
+        };
+
+        var MainClient;
+        return MainClient = {
+            // ################################################################################################################
+            // Main initialization
+
+            __ctor: function() {
+            },
+
+            events: {
+                userPrivChanged: squishy.createEvent()
+            },
+
+            /**
+             * SelectionState simply keeps track of a single selection from a list,
+             * using some sort of id.
+             */
+            SelectionState: squishy.createClass(function(idProperty) {
+                // ctor
+                this.selectedId = 0;
+                this.idProperty = idProperty;
+            },{
+                // methods
+
+                /**
+                 * Selects or deselects the given object
+                 */
+                toggleSelection: function(objOrId) {
+                    if (!objOrId) return;
+                    var id = objOrId[this.idProperty] || objOrId;
+
+                    if (id == this.selectedId) {
+                        // already selected -> deselect
+                        this.selectedId = 0;
+                    }
+                    else {
+                        // not selected -> select
+                        this.selectedId = id;
+                    }                            
+                },
+
+                /**
+                 * Selects the given object
+                 */
+                setSelection: function(objOrId) {
+                    if (!objOrId) return;
+                    var id = objOrId[this.idProperty] || objOrId;
+
+                    // set
+                    this.selectedId = id;
+                },
+
+                /**
+                 * Clears selection
+                 */
+                unsetSelection: function() {
+                    // unset
+                    this.selectedId = 0;
+                },
+
+                /**
+                 * Whether the given object is currently selected
+                 */
+                isSelected: function(objOrId) {
+                    if (!objOrId) return;
+                    var id = objOrId[this.idProperty] || objOrId;
+
+                    return this.selectedId == id;
+                },
+
+                /**
+                 * Whether any object is currently selected
+                 */
+                hasSelection: function() {
+                    return !!this.selectedId;
+                }
+            }),
+            
+            /**
+             * Start things off!
+             */
+            initClient: function() {
+                // initialize locals
+                UserRole = Instance.User.UserRole;
+
+                // init UIMgr
+                var app = Instance.UIMgr.initUIMgr(
+                    // title
+                    'AWESOME APPLICATION', 
+
+                    // custom angular modules
+                    [
+                        'ui.bootstrap',
+                        'timespanPicker'
+                    ], 
+
+                    // event listener
+                    this.updateTemplateData.bind(this));
+
+                // add our custom directives
+                addDirectives(app);
+
+                // add some general functions and objects to $rootScope
+                app.run(['$rootScope', function($rootScope) {
+                    var localizer = Instance.Localizer.Default;
+
+                    // localize
+                    $rootScope.localize = localizer.lookUp.bind(localizer);
+
+                    // add lodash
+                    $rootScope._ = _;
+
+                    // some additional, less universal utilities
+                    $rootScope.util = {
+                        /**
+                         * Library for date + time representation.
+                         * @see http://momentjs.com/
+                         */
+                        moment: moment,
+
+                        /**
+                         * Utility for managing simple selection states.
+                         */
+                        createSelectionState: function(idProperty) {
+                            return new Instance.Main.SelectionState(idProperty);
+                        }
+                    };
+                }]);
+
+                // Instance.UIMgr.events.pageActivated.addListener(function(newPage) {
+                // });
+
+                // add default page groups
+                initDefaultPageGroups();
+            },
+
+            
+            Public: {
+                // ################################################################################################################
+                // Events triggered directly by the server (or by client)
+
+                setDefaultLocalizer: function(localizerData) {
+                    Instance.Localizer.Default = Instance.Localizer.createLocalizer(localizerData);
+
+                    // set user locale
+                    var locale = Instance.User.getCurrentLocale();
+                    Instance.Localizer.Default.setLocale(locale);
+                },
+
+                updateTemplateData: function() {
+                    // update template data in global scope:
+                    Instance.UIMgr.scope.gotAllGroups = false;
+
+                    // set user data
+                    Instance.UIMgr.scope.currentUser = Instance.User.currentUser;
+                    Instance.UIMgr.scope.currentUserIsStaff = Instance.User.isStaff();
+                    Instance.UIMgr.scope.locale = Instance.User.getCurrentLocale();
+                    Instance.UIMgr.scope.currentGroupGid = 
+                        Instance.User.currentUser && Instance.User.currentUser.gid;
+                },
+
+                /**
+                 * Invalidate certain aspects of the view
+                 */
+                onUserPrivChanged: function() {
+                    Instance.UIMgr.ready(function() {
+                        this.updateTemplateData();
+
+                        // tell UIMgr module to re-check which buttons are enabled and
+                        //  whether the user may stay on current page etc.
+                        Instance.UIMgr.revalidatePagePermissions();
+
+                        // fire event
+                        this.events.userPrivChanged.fire();
+                    }.bind(this));
+                }
+            }
+        };
+    })
+});

@@ -1,0 +1,82 @@
+<div id="ng-app" class="fill" ng-app="app" ng-controller="uimgrCtrl">
+
+  <!-- OK <-> Cancel Modal dialog template -->
+  <script type="text/ng-template" id="okCancelModal.html">
+      <div class="modal-header">
+          <h3 class="modal-title">{{okCancelModalData.title}}</h3>
+      </div>
+      <div class="modal-body">
+          {{okCancelModalData.body}}
+      </div>
+      <div class="modal-footer">
+        <!-- OK Button -->
+        <a class="container-stretched btn btn-lg btn-success" style="display:inline"
+            ng-click="ok()">
+            <localize key="Ok" />
+        </a>
+        <a class="container-stretched btn btn-lg btn-warning" style="display:inline"
+            ng-click="cancel()">
+            <localize key="Cancel" />
+        </a>
+      </div>
+  </script>
+
+  <!-- Menu -->
+  <div class="nav-main" ng-controller="uiMenuCtrl">
+    <nav class="navbar navbar-inverse" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+            <!-- This is the hamburger button. It only shows when width gets too small. -->
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-menu">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="main-menu">
+          <ul class="nav navbar-nav">
+            <li ng-repeat="button in navButtons"
+              ng-show="button.show" 
+              ng-class="{active: button.active}">
+                <a href="" title="{{ localize(button.name) }}" ng-click="button.onClick()">
+                  <i class="{{ button.cssClass }}"></i>
+
+                  <!-- Button decorations -->
+                  <span style="font-size: .5em;">
+                    <!-- Orange Exclamation Mark -->
+                    <i
+                        ng-show="button.urgentMarker"
+                        style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
+                        class="fa fa-exclamation">
+                    </i>
+
+                    <!-- Point badge -->
+                    <span
+                        ng-show="button.badgeValue"
+                        style="position: absolute; bottom: .5em; right: .2em;"
+                        class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
+                            ><span
+                            >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
+                    ></span>
+                  </span>
+                </a>
+              </li>
+          </ul>
+            
+        </div><!-- /.navbar-collapse -->
+      </div>
+    </nav>
+  </div>
+
+
+  <!-- Content -->
+  <div class="container fill" style="padding: 0">
+    <!-- Pages -->
+    <div ng-repeat="page in pages"
+      class="fill" style="position: relative;" ng-show="page.active" ng-include="page.templateName">
+    </div>
+  </div>
+</div>

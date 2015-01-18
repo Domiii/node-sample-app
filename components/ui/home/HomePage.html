@@ -1,0 +1,15 @@
+<div class="fill container-page" ng-controller="homeCtrl">
+	Welcome back, {{currentUser.name}}!
+    <div class="alert alert-warning fill">
+        TODO <span style="color: orange" class="fa fa-exclamation-triangle" />
+    </div>
+    
+    <!-- Logout button -->
+    <div><center>
+        <a ng-disabled="busy"
+            class="btn btn-lg btn-fancy" 
+            ng-click="clickLogout()">
+            <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        </a>
+    </center></div>
+</div>

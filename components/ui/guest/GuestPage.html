@@ -1,0 +1,44 @@
+<div class="fullscreen_bg" ng-controller="guestCtrl">
+    <div class="container container-page form-signin">
+        <h1 class="form-signin-heading">AWESOME APPLICATION</h1>
+
+        <!-- User name input -->
+        <validated-text-input tabindex="1" 
+            class="container-stretched form-control form-input" 
+            placeholder="{{localize('userName')}}" required autofocus
+            validate-model="loginData.userName"
+            validate-error="nameInvalid"
+            validate-result-invalid="true"
+            ng-enter="clickLogin()"></validated-text-input>
+
+        <!-- Error Messages -->
+        <div 
+            ng-style="{visibility: (!!errorMessage || nameInvalid) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger"
+            style="margin-bottom: 20px">
+            <localize
+                ng-show="!nameInvalid"
+                can-be-empty
+                key="{{errorMessage}}"></localize>
+            <localize
+                ng-show="nameInvalid"
+                key="error.invalid.userName"></localize>
+            &nbsp;
+        </div>
+
+        <!-- Login button -->
+        <a ng-disabled="busy || nameInvalid" tabindex="2" class="container-stretched form-control btn btn-lg btn-fancy btn-block" 
+            ng-click="clickLogin()"
+            ng-enter="clickLogin()">
+            <span><localize key="Login" /></span>
+                <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        </a>
+    </div>
+
+    <!-- Footer -->
+    <div class="container" style="">
+    <span>
+        Wide footer here!
+    </span>
+    </div>
+</div>

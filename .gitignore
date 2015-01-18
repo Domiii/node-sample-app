@@ -1,0 +1,27 @@
+_log/*
+*.log
+
+.DS_Store
+auto_ip.txt
+appConfig.json
+_data/tokens.json
+tmp
+wikierr.txt
+
+**/.fuse_hidden*
+
+node_modules/*
+
+# this is just for convinience
+!node_modules/nogap/
+node_modules/nogap/node_modules/marked-toc
+node_modules/nogap/node_modules/.bin
+node_modules/nogap/samples
+
+wiki/LocalSettings.php
+wiki/images/*
+!wiki/images/.htaccess
+wiki/cache/*
+!wiki/cache/.htaccess
+
+*.sublime-workspace
