@@ -4,7 +4,7 @@ _log/*
 .DS_Store
 auto_ip.txt
 appConfig.json
-_data/tokens.json
+data/tokens.json
 tmp
 wikierr.txt
 
