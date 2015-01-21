@@ -1,5 +1,7 @@
 <div id="ng-app" class="fill" ng-app="app" ng-controller="uimgrCtrl">
 
+  
+
   <!-- OK <-> Cancel Modal dialog template -->
   <script type="text/ng-template" id="okCancelModal.html">
       <div class="modal-header">
@@ -23,8 +25,9 @@
 
   <!-- Menu -->
   <div class="nav-main" ng-controller="uiMenuCtrl">
-    <nav class="navbar navbar-inverse" role="navigation">
+    <nav class="navbar navbar-default" role="navigation">
       <div class="container">
+        
         <div class="navbar-header">
             <!-- This is the hamburger button. It only shows when width gets too small. -->
           <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-menu">
@@ -38,6 +41,7 @@
         <!-- Collect the nav links, forms, and other content for toggling -->
         <div class="collapse navbar-collapse" id="main-menu">
           <ul class="nav navbar-nav">
+            
             <li ng-repeat="button in navButtons"
               ng-show="button.show" 
               ng-class="{active: button.active}">
@@ -64,8 +68,61 @@
                   </span>
                 </a>
               </li>
-          </ul>
+              
+              <li class = "dropdown">
+                <a href="#" id="class_introduction" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"  style= "font-size:0.6em" >課程內容<span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                 <li><a href="#">Week 1</a></li>
+                  <li class="divider"></li>
+                  <li><a href="#">Week 2</a></li>
+                  <li class="divider"></li>
+                  <li><a href="#">Week 3</a></li>
+                  <li class="divider"></li>
+                  <li><a href="#">Week 4</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" style="font-size:0.6em">影片欣賞<span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li> <a href="/video">兩分鐘自介</a></li>
+                  <li class="divider"></li>
+                  <li><a href="/video">六分鐘演講</a></li>
+                </ul>
+              </li>
             
+              <li>
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" style="font-size:0.6em">自我評量<span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li><a href="/self_video">兩分鐘自介</a></li>
+                  <li class="divider"></li>
+                  <li><a href="/self_video">六分鐘演講</a></li>
+                </ul>
+              </li>
+            
+              <li>
+                <a href="#" style="font-size:0.6em">關於我們</a>
+              </li>
+            
+              <li>
+                <a href="#" style="font-size:0.6em">聯絡我們</a>
+              </li>  
+            </ul>
+
+            <ul class="nav navbar-nav navbar-right">
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false" style="font-size:0.6em">許證捷<span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li><a href="#">課程進度</a></li>
+                  <li><a href="#">修改資料</a></li>
+                  <li><a href="#">上傳影片</a></li>
+                  <li class="divider"></li>
+                  <li><a href="#">登出</a></li>
+                </ul>
+              </li>
+            </ul>
+
+          </ul>
         </div><!-- /.navbar-collapse -->
       </div>
     </nav>

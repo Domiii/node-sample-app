@@ -158,7 +158,7 @@ module.exports = NoGapDef.component({
         	 */
             {
                 pageComponents: [
-                    'HomePage'
+                    'main_layout'
                 ],
 
                 /**

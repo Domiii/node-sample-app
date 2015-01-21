@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="pagamo,PaGamO,Pagamo,Bonio">
+    <meta name="description" content="全球首創線上電競學習平台，PaGamo是一個能增進學習效果的最佳遊戲!">
+    <meta name="og:image" content="img/website_LOGO_s.png">
+
+    <title>EElearning - CCHZ</title>
+
+    <%= stylesheet_link_tag    "application", :media => "all" %>
+    <%= javascript_include_tag "application" %>
+    <%= javascript_include_tag "main_layout" %>
+    <%= csrf_meta_tags %>
+	
+    <link href="http://fonts.googleapis.com/css?family=Montserrat:400,700" rel="stylesheet" type="text/css">
+    <link href='http://fonts.googleapis.com/css?family=Kaushan+Script' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Roboto+Slab:400,100,300,700' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Quattrocento+Sans' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
+    <link href="http://vjs.zencdn.net/4.10/video-js.css" rel="stylesheet">
+    <script src="http://vjs.zencdn.net/4.10/video.js"></script>
+
+<!-- 從這開始-->
+       
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+      <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <%= link_to "Presentation" , root_path , id: "PaGamO_Logo" , class: "navbar-brand" %>
+        </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          <ul class="nav navbar-nav">
+            <li class = "dropdown">
+              <a href="#" id="class_introduction" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">課程內容<span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="#">Week 1</a></li>
+                <li class="divider"></li>
+                <li><a href="#">Week 2</a></li>
+                <li class="divider"></li>
+                <li><a href="#">Week 3</a></li>
+                <li class="divider"></li>
+                <li><a href="#">Week 4</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">影片欣賞<span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li> <a href="/video">兩分鐘自介</a></li>
+                <li class="divider"></li>
+                <li><a href="/video">六分鐘演講</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">自我評量<span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="/self_video">兩分鐘自介</a></li>
+                <li class="divider"></li>
+                <li><a href="/self_video">六分鐘演講</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#">關於我們</a>
+            </li>
+            <li>
+            	<a href="#">聯絡我們</a>
+            </li>
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">許證捷<span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="#">課程進度</a></li>
+                <li><a href="#">修改資料</a></li>
+                <li><a href="#">上傳影片</a></li>
+                <li class="divider"></li>
+                <li><a href="#">登出</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div><!-- /.navbar-collapse -->
+      </div><!-- /.container-fluid -->
+    </nav>        
+</head>
+
+<body id='page-top' class='index'>
+    <%= yield %>
+      <% if notice %>
+      <p class="alert alert-success"><%= notice %></p>
+      <% end %>
+      <% if alert %>
+      <p class="alert alert-danger"><%= alert %></p>
+      <% end %>
+</body>
+
+</html>
