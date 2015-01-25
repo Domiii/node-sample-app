@@ -161,7 +161,9 @@ module.exports = NoGapDef.component({
         	 */
             {
                 pageComponents: [
-                    'HomePage'
+                    'HomePage',
+                    'VideoPage',
+                    'ContactPage'
                 ],
 
                 /**
