@@ -9,8 +9,6 @@ var NoGapDef = require('nogap').Def;
 
 
 module.exports = NoGapDef.component({
-    Namespace: 'bjt',
-    
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) { return {
         Assets: {
             AutoIncludes: {
@@ -24,13 +22,22 @@ module.exports = NoGapDef.component({
                      */
                     'lib/angular/ui-bootstrap-tpls-0.11.2',
 
-                    // lodash for all kinds of stuff
+                    /**
+                     * lodash can do all kinds of stuff
+                     * @see lodash.com/docs
+                     */
                     'lib/lodash.min',
 
-                    // URI.js for working with URLs
+                    /**
+                     * URI.js for working with URLs
+                     * @see http://medialize.github.io/URI.js/
+                     */
                     'lib/URI',
 
-                    // moment.js for working with time, dates and timespans
+                    /**
+                     * moment.js for working with time, dates and timespans
+                     * @see http://momentjs.com/
+                     */
                     'lib/moment',
                     
                     // squishy for classes, enums and some other goodies
@@ -43,29 +50,31 @@ module.exports = NoGapDef.component({
                     'js/DomUtil',
                     'js/angular_ui/timespan-picker',
                     
+                    // Array utilities
+                    
                 ],
                 css: [
-                    // bootstrap & font-awesome makes things look pretty
+                    // bootstrap & font-awesome make things look pretty
                     'lib/bootstrap/bootstrap.min.css',
-                    //'//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css',
                     'lib/font-awesome/css/font-awesome.min.css',
+                    //'//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css',
                     //'//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css',
 
-                    // normalize makes the entire page look equivalent across all browsers
+                    /**
+                     * normalize.css fixes style differences between browsers
+                     * @see http://necolas.github.io/normalize.css/
+                     */
                     'lib/normalize.css',
 
-                    // custom styles
+                    // our custom styles
                     'css/styles.css'
                 ]
             }
         },
 
-        initHost: function() {
+        initHost: function(app, cfg) {
             // load default localization files
-            var localizerCfg = {
-                langDir: 'lang'
-            };
-            Shared.Localizer.Default = Shared.Localizer.createLocalizer(localizerCfg);
+            Shared.Localizer.Default = Shared.Localizer.createLocalizer(cfg.localizer || {});
         },
         
         Private: {
@@ -78,18 +87,18 @@ module.exports = NoGapDef.component({
                 // enable these components on the client initially
                 // NOTE: This causes other operations which might not finish instantly!
                 return this.Tools.requestClientComponents(
-                    // Core components
-                    'AppConfig',
-                    'User',
+                    // Core stuff
+                    'AppConfig', 'User',
 
-                    // Utility components
+                    // utilities
                     'CacheUtil',
                     'MiscUtil',
                     'Localizer',
                     'Log',
                     'ValidationUtil',
+                    'SimpleBooleanExpressions',
 
-                    // baseline UI elements
+                    // base UI elements
                     'UIMgr', 'Main')
                 .then(function() {
                     // send default localizer to client
@@ -135,15 +144,31 @@ module.exports = NoGapDef.component({
          */
         var app;
 
+        /**
+         * The $scope object of the Main controller.
+         */
+        var mainScope;
+
+
+        // ####################################################################################################################
+        // initialization (private)
+
+        /**
+         * Tell Angular to re-render dirty variables inside the main view.
+         * @see http://stackoverflow.com/a/23769600/2228771
+         */
+        var invalidateView = function() {
+            if (!mainScope.$$phase) mainScope.$digest();
+        };
 
         // ####################################################################################################################
         // page groups & pages
 
-        // We have two groups of pages
+        // TODO: Set the guest user object; and use `displayRole` instead to determine user access
         var _defaultPageGroups = [
-        	/**
-        	 * Guest clients get access to these components.
-        	 */
+            /**
+             * Guest clients get access to these components.
+             */
             {
                 pageComponents: [
                     'GuestPage'
@@ -153,18 +178,17 @@ module.exports = NoGapDef.component({
                 }
             },
 
-        	/**
-        	 * Logged in users get access to these components
-        	 */
+            /**
+             * Logged in users get access to these components
+             */
             {
-                pageComponents: [
-                    'HomePage'
+                otherComponents: [
+                    // Models + other components
+                    'Group'
                 ],
 
-                /**
-                 * Other non-page components to be loaded when this group is loaded
-                 */
-                otherComponents: [
+                pageComponents: [
+                    'HomePage'
                 ],
 
                 mayActivate: function() {
@@ -200,6 +224,26 @@ module.exports = NoGapDef.component({
         // TODO: Move to it's own file(s)
 
         var addDirectives = function(app) {
+            app.directive('pulseClock', function() {
+                var linkFun = function($scope, $element, $attrs) {
+                    var evalExpr = function(dontApply) {
+                        $scope.clockValue = $scope.$eval($attrs.pulseClock);
+                        if (!dontApply) {
+                            $scope.$digest();
+                        }
+                    };
+
+                    setTimeout(evalExpr);
+                    setInterval(evalExpr, 999);
+                };
+
+                return {
+                    restrict: 'A',  // Attribute
+                    link: linkFun
+                };
+            });
+
+
             // localizer directive
             app.directive('localize', function() {
                 var localizer = Instance.Localizer.Default;
@@ -207,31 +251,31 @@ module.exports = NoGapDef.component({
                     AngularUtil.decorateScope($scope);
                     
                     function lookupTranslation() {
-                        if (!attrs.key && !attrs.hasOwnProperty('canBeEmpty')) {
-                            // key is missing - We need some extra debugging info to find the culprit:
-                            var key = attrs.key;
-                            var rawHtml = element.parent().html();
-                            setTimeout(function() {
-                                var msg = 'Invalid `localize` directive.\n';
-                                if (!key) {
-                                    msg += 'Empty `key` attribute ';
-                                }
-                                else {
-                                    msg += 'Interpolated `key` attribute `' + key + '` evaluated to empty string ';
-                                }
-                                msg += 'on page `' + $scope.pageState.name + '`:\n';
-                                msg += rawHtml;
-                                console.error(msg);
+                        // if (!attrs.key && !attrs.hasOwnProperty('canBeEmpty')) {
+                        //     // key is missing - We need some extra debugging info to find the culprit:
+                        //     var key = attrs.key;
+                        //     var rawHtml = element.parent().html();
+                        //     setTimeout(function() {
+                        //         var msg = 'Invalid `localize` directive.\n';
+                        //         if (!key) {
+                        //             msg += 'Empty `key` attribute ';
+                        //         }
+                        //         else {
+                        //             msg += 'Interpolated `key` attribute `' + key + '` evaluated to empty string ';
+                        //         }
+                        //         msg += 'on page `' + $scope.page.name + '`:\n';
+                        //         msg += rawHtml;
+                        //         console.error(msg);
 
-                                // go to page
-                                $scope.gotoPage($scope.pageState.name);
+                        //         // go to page
+                        //         $scope.gotoPage($scope.page.name);
 
-                                // highlight parent element
-                                // TODO: Parent element might not be visible
-                                dimAllAndHighlightOne(element.parent());
-                            });
-                            return;
-                        }
+                        //         // highlight parent element
+                        //         // TODO: Parent element might not be visible
+                        //         dimAllAndHighlightOne(element.parent());
+                        //     });
+                        //     return;
+                        // }
 
                         if (attrs.key) {
                             // actual translation
@@ -289,6 +333,99 @@ module.exports = NoGapDef.component({
                     });
                 };
             });
+
+            app.directive('fileInputChanged', function() {
+                var linkFun = function ($scope, $element, $attrs) {
+                    // see: http://stackoverflow.com/a/19647381/2228771
+                    $element.bind('change', function() {
+                        if ($attrs.files) {
+                            // update files binding
+                            var files = $element[0].files;
+                            $scope[$attrs.files] = files;
+                        }
+
+                        if ($attrs.fileInputChanged) {
+                            // call event handler
+                            $scope.$eval($attrs.fileInputChanged);
+                        }
+                        $scope.$apply();
+                    });
+                };
+
+                return {
+                    restrict: 'A',      // attribute
+                    link: linkFun
+                };
+            });
+
+            // /**
+            //  * A jquery-UI slider with databinding.
+            //  * @see http://stackoverflow.com/a/24732258/2228771
+            //  * @see http://jsfiddle.net/vNfsm/50/
+            //  */
+            // app.directive('slider', function() {
+            //     var linkFun = function($scope, element, attrs) {
+            //         AngularUtil.decorateScope($scope);
+
+            //         var $slider = jQuery(element);
+            //         var option = attrs;
+            //         var readIntOption = function(key, option) {
+            //             if (option[key]) {
+            //                 option[key] = parseInt(option[key]);
+            //             }
+            //         };
+
+            //         // read default options
+            //         readIntOption("min", option);
+            //         readIntOption("max", option);
+            //         readIntOption("step", option);
+
+            //         // add `value` and `change` properties to slider for data-binding
+            //         option = jQuery.extend({
+            //             change: function(event, ui) {
+            //                 if (!event.which) return;   // only trigger on UI events
+            //                 if (ui.value != $scope.valueModel) {
+            //                     // update value
+            //                     $scope.valueModel = ui.value;
+
+            //                     // update the value of the variable that is bound to `valueModel`
+            //                     if (!$scope.$$phase) {
+            //                         $scope.$digest();
+            //                     }
+
+            //                     // raise callback
+            //                     if ($scope.valueChanged) {
+            //                         $scope.valueChanged();
+            //                     }
+            //                 }
+            //             }
+            //         }, option);
+
+            //         // data binding in the other direction
+            //         $scope.$watch("valueModel", function(val) {
+            //             if ($scope.valueModel != $slider.slider("value")) {
+            //                 // update slider value
+            //                 // this will not raise the `change` event above
+            //                 $slider.slider("value", $scope.valueModel);
+            //             }
+            //         });
+
+            //         // create slider
+            //         $slider.slider(option);
+            //     };
+                
+            //     return {
+            //         restrict: 'E',
+            //         replace: true,
+            //         transclude: false,
+            //         template: '<div />',
+            //         scope: {
+            //             valueModel: '=',
+            //             valueChanged: '&'
+            //         },
+            //         link: linkFun
+            //     };
+            // });
         };
 
         var MainClient;
@@ -369,37 +506,31 @@ module.exports = NoGapDef.component({
             }),
             
             /**
-             * Start things off!
+             * 
              */
             initClient: function() {
                 // initialize locals
                 UserRole = Instance.User.UserRole;
 
-                // init UIMgr
-                var app = Instance.UIMgr.initUIMgr(
-                    // title
-                    'AWESOME APPLICATION', 
-
-                    // custom angular modules
-                    [
-                        'ui.bootstrap',
-                        'timespanPicker'
-                    ], 
-
-                    // event listener
-                    this.updateTemplateData.bind(this));
+                // start angular
+                // Added modules:
+                var includeModules = [
+                    'ui.bootstrap',
+                    'timespanPicker'
+                ];
+                var angularApp = angular.module('app', includeModules);
 
                 // add our custom directives
-                addDirectives(app);
+                addDirectives(angularApp);
 
                 // add some general functions and objects to $rootScope
-                app.run(['$rootScope', function($rootScope) {
+                angularApp.run(['$rootScope', function($rootScope) {
                     var localizer = Instance.Localizer.Default;
 
                     // localize
                     $rootScope.localize = localizer.lookUp.bind(localizer);
 
-                    // add lodash
+                    // lodash
                     $rootScope._ = _;
 
                     // some additional, less universal utilities
@@ -424,6 +555,17 @@ module.exports = NoGapDef.component({
 
                 // add default page groups
                 initDefaultPageGroups();
+
+                // init UIMgr
+                Instance.UIMgr.initUIMgr(
+                    // title
+                    'BJT Online',
+                    angularApp 
+                )
+                .then(function() {
+                    // event listener
+                    this.updateTemplateData.bind(this)
+                }.bind(this));
             },
 
             
@@ -449,6 +591,9 @@ module.exports = NoGapDef.component({
                     Instance.UIMgr.scope.locale = Instance.User.getCurrentLocale();
                     Instance.UIMgr.scope.currentGroupGid = 
                         Instance.User.currentUser && Instance.User.currentUser.gid;
+
+                    // set config
+                    Instance.UIMgr.scope.config = Instance.AppConfig.cfg;
                 },
 
                 /**

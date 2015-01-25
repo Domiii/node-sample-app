@@ -94,7 +94,7 @@ module.exports = NoGapDef.component({
                             // success!
                             $scope.$apply();
                         })
-                        .catch($scope.handleError);
+                        .catch($scope.handleError.bind($scope));
                     };
 
                     // auto login as 'SomeUser'
@@ -106,7 +106,7 @@ module.exports = NoGapDef.component({
                 }]);
 
                 // register page
-                Instance.UIMgr.addPage(this, 'Guest', this.assets.template);
+                Instance.UIMgr.registerPage(this, 'Guest', this.assets.template);
             },
             
             

@@ -56,12 +56,14 @@ module.exports = NoGapDef.component({
                         .finally(function() {
                             $scope.busy = false;
                         })
-                        .catch($scope.handleError);
+                        .catch($scope.handleError.bind($scope));
                     };
                 }]);
 
                 // register page
-                Instance.UIMgr.addPage(this, 'Home', this.assets.template, 'fa fa-home');
+                Instance.UIMgr.registerPage(this, 'Home', this.assets.template, {
+                    class: 'fa fa-home'
+                });
             },
             
             /**

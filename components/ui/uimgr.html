@@ -40,9 +40,10 @@
           <ul class="nav navbar-nav">
             <li ng-repeat="button in navButtons"
               ng-show="button.show" 
-              ng-class="{active: button.active}">
+              ng-class="{ active: button.active }">
                 <a href="" title="{{ localize(button.name) }}" ng-click="button.onClick()">
-                  <i class="{{ button.cssClass }}"></i>
+                  <i ng-if="button.cssClass" class="{{ button.cssClass }}"></i>
+                  <span ng-if="button.text">{{ button.text }}</span>
 
                   <!-- Button decorations -->
                   <span style="font-size: .5em;">
@@ -76,7 +77,9 @@
   <div class="container fill" style="padding: 0">
     <!-- Pages -->
     <div ng-repeat="page in pages"
-      class="fill" style="position: relative;" ng-show="page.active" ng-include="page.templateName">
+      class="fill" style="position: relative;" 
+      ng-show="page.active"
+      ng-include="page.templateName">
     </div>
   </div>
 </div>

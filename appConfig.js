@@ -4,6 +4,15 @@ var config = {
     // we are in development mode
     'dev': 1,
 
+    'title': 'BJT Online',
+
+    /**
+     * Whether to open the command line
+     */
+    'console': 1,
+    
+    'defaultLocale': 'en',
+
     // folder containing files, accessible by clients
     'publicFolder': 'pub',
 
@@ -78,12 +87,14 @@ var config = {
             // core components
             'models/core/AppConfig',
             'models/core/User',
+            'models/core/Group',
 
             // misc utilities
             'util/MiscUtil',
             'util/Localizer',
             'util/Log',
             'util/ValidationUtil',
+            'util/SimpleBooleanExpressions',
 
             // core UI components:
             'ui/UIMgr',

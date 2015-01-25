@@ -1,5 +1,5 @@
 /**
- * 
+ * Start Application
  */
 "use strict";
 
@@ -35,6 +35,7 @@ var publicFolder = appConfig.nogap.publicFolder || './pub';
 if (!publicFolder.endsWith('/') && !publicFolder.endsWith('\\')) {
     publicFolder += '/';
 }
+appConfig.nogap.publicFolder = publicFolder;    // corrected version
 
 // Lo-Dash brings all kinds of utilities for array and object manipulation
 // see: http://stackoverflow.com/questions/13789618/differences-between-lodash-and-underscore
@@ -49,12 +50,28 @@ require(publicFolder + 'js/squishy/squishy');
 
 
 // ####################################################################################
+// merge in user config
+
+var appConfigUser;
+try {
+    appConfigUser = require('./appConfig.user');
+    if (appConfigUser) {
+        _.merge(appConfig, appConfigUser);
+    }
+}
+catch (err) {
+    // no matter
+    console.warn('[WARN] Could not load `appConfig.user.js`: ' + err.message);
+}
+
+// ####################################################################################
 // setup server
 
 // get setup libraries and start setting up!
 var Logging = require('./lib/Logging');
 var SequelizeUtil = require('./lib/SequelizeUtil');
 var Maintenance = require('./lib/Maintenance');
+var Setup = require('./lib/Setup');
 
 console.log('Starting server. Please wait...');
 
@@ -74,7 +91,14 @@ GLOBAL.Promise.longStackTraces();
 
 // start express app
 var app = express();
-app.set('title', 'AWESOME APPLICATION');
+app.set('title', appConfig.title);
+
+
+// // for debugging purposes:
+// app.use(function(req, res, next) {
+//     console.log('Incoming request for: ' + req.url);
+//     next();
+// });
 
 // add event listener when process exists
 Maintenance.events.exit.addListener(function() {
@@ -94,6 +118,7 @@ Maintenance.events.exit.addListener(function() {
 // ####################################################################################
 // start server
 
+var Shared;
 Promise.resolve()
 .then(function() {
     // add favicon and session management middleware
@@ -117,7 +142,10 @@ Promise.resolve()
     // Note: This also calls `initHost` on every component
     return NoGapLoader.start(app, appConfig.nogap);
 })
-.then(function(Shared) {
+.then(function(_Shared) {
+    // add Shared to app (for now)
+    Shared = _Shared;
+
     // register connection error handler
     Shared.Libs.ComponentCommunications.events.connectionError.addListener(
         Maintenance.reportConnectionError.bind(Maintenance));
@@ -131,8 +159,8 @@ Promise.resolve()
 
     // error handler
     app.use(function(err, req, res, next) {
-        var status = err.status || 500;
-        console.error('Error during request (' + status + '): ' + (err.stack || err));
+        var status = err.status || (!isNaN(err) && err) || 500;
+        console.error('Error during request (' + status + '): ' + (err.stack || new Error(err).stack));
         
         res.writeHead(status, {'Content-Type': 'text/html'});
         if (appConfig.dev) {
@@ -160,7 +188,13 @@ Promise.resolve()
     //var serverDomain = domain.create()
 
     app.serverInstance = app.listen(appConfig.httpd.port, function() {
-        console.log('AWESOME APPLICATION is now up and running at port ' + app.serverInstance.address().port);
+        console.log(appConfig.title + ' is now up and running at port ' + app.serverInstance.address().port);
+
+        if (appConfig.console) {
+            // start command line interpreter
+            var startCommandPrompt = require('./CommandPrompt.js');
+            startCommandPrompt(Shared);
+        }
     }).on('error', function (err) {
         // HTTP listen socket got closed unexpectedly...
         // TODO: Try to re-start instead of closing things down!

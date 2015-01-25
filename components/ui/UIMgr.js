@@ -31,8 +31,8 @@ module.exports = NoGapDef.component({
 
                 Files: {
                     string: {
-                        // UI mgr template
-                        template: 'uimgr.html'
+                        // ui mgr template
+                        view: 'uimgr.html'
                     }
                 }
             },
@@ -72,6 +72,10 @@ module.exports = NoGapDef.component({
         // misc vars
         var templateCache;
         var clientInitialized;
+
+        // during initialization or other critical operations, the pendingPromise
+        //      provides a command queue to keep things in sync
+        var pendingPromise;
 
         /**
          * The main Angular module
@@ -153,6 +157,9 @@ module.exports = NoGapDef.component({
                 // only one active button in the main menu (for now)
                 activeButton.active = false;
             }
+
+            // throw new Error('went to page: ' + page.name);
+
             page.active = true;
             if (page.navButton) {
                 page.navButton.active = true;
@@ -180,8 +187,8 @@ module.exports = NoGapDef.component({
         var setActivePage = function(newPage, pageArgs, force) {
         	var This = Instance.UIMgr;
 
-            // we need to defer setup because Angular might not be ready yet
-            This.ready(function() {
+            return This.ready(function() {
+                // we need to defer setup because Angular might not be ready yet
                 if (!force && activePage == newPage) {
                     // same page -> Don't do anything
 
@@ -207,12 +214,28 @@ module.exports = NoGapDef.component({
                     }
 
                     // invalid view
-                    scope.safeApply();
+                    invalidateView();
 
                     // fire event
                     This.events.pageActivated.fire(newPage);
                 }
             });
+        };
+
+    
+        /**
+         * Tell Angular to re-render dirty variables inside the main view.
+         * @see http://stackoverflow.com/a/23769600/2228771
+         */
+        var invalidateView = function() {
+            scope.safeApply();
+        };
+
+        /**
+         * Re-render menu.
+         */
+        var invalidateMenuView = function() {
+            menuScope.safeApply();
         };
 
         return {
@@ -221,12 +244,8 @@ module.exports = NoGapDef.component({
             // UIMgr initialization
 
             __ctor: function() {
-                // setup event stuff
-                this.readyCount = 0;
-                this.expectedReadyCount = 1;
-
+                // create events
             	this.events = {
-                    ready: squishy.createEvent(this),
             		pageActivated: squishy.createEvent(this)
             	};
             },
@@ -234,15 +253,20 @@ module.exports = NoGapDef.component({
             /**
              * This is called by the outside to kickstart this whole thing.
              */
-            initUIMgr: function(appName, includeModules, onControllerCreation) {
+            initUIMgr: function(appName, _app) {
             	console.assert(!clientInitialized, 'Tried to initialize UIMgr more than once.');
                 clientInitialized = true;
+
+                app = _app;
                 this.appName = appName;
 
-                // Angular setup
-                // Added modules: 
-                //  - 'ui.bootstrap' (http://angular-ui.github.io/bootstrap/)
-                app = angular.module('app', includeModules || []);
+                /**
+                 * @see http://stackoverflow.com/a/23066423/2228771
+                 */
+                window.measureUIPerformance = function() {
+                    angular.element('#ng-app').injector()
+                    .invoke(function($rootScope) { var a = performance.now(); $rootScope.$apply(); console.log(performance.now()-a); });
+                };
 
                 // define lazy version as non-lazy version first.
                 // Once ready + bootstrapped, they will be overridden with the actual lazy version of things.
@@ -266,43 +290,6 @@ module.exports = NoGapDef.component({
                     // we need this for lazy registration of new directives after Angular's bootstrap
                     // see: http://stackoverflow.com/a/24228135/2228771
                     app.lazyDirective = $compileProvider.directive;
-
-                    // app.lazyController = function(ctrlName, ctorDIArray) {
-                    //     console.assert(ctorDIArray instanceof Array), 
-                    //         'The second argument to `lazyController` must be a ctor in array form, decorated with DI annotations.');
-                        
-                    //     // we are still waiting for this guy
-                    //     ++this.expectedReadyCount;
-
-                    //     var isReady;
-
-                    //     // add $injector, so we can get a grip on when this ctor was created
-                    //     var iCtor = ctorDIArray.length-1;
-                    //     var ctor = ctorDIArray[iCtor];
-                    //     console.assert(ctor instanceof Function, 
-                    //         'Invalid constructor. The last element in the array handed to `lazyController` must be a ctor function.');
-
-                    //     // inject ready maker
-                    //     ctorDIArray[iCtor] = function() {
-                    //         // call original ctor
-                    //         ctor.apply(this, arguments);
-
-                    //         // 
-                    //         var $injector = arguments[arguments.length-1];
-
-                    //         // ctor was invoked -> We are now (probably) ready.
-                    //         if (!isReady) {
-                    //             isReady = true;
-                    //             signalReady();
-                    //         }
-                    //     };
-
-                    //     ctorDIArray.splice(nDeps, 0, "$injector");
-                    //     $controllerProvider.register(ctrlName, ctorDIArray);
-                    // }.bind(this);
-
-                    // TODO: Inject a callback for guessing ready state
-
                 }]).
                 config( ['$provide', function ($provide){
                     $provide.decorator('$browser', ['$delegate', function ($delegate) {
@@ -314,12 +301,13 @@ module.exports = NoGapDef.component({
                         return $delegate;
                     }]);
                 }]);
-                
-                // define root controller
+                    
                 var This = this;
-                app.controller('uimgrCtrl',
-                    ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
-                    function($scope, $templateCache, $injector, $modal, $rootScope) {
+                return pendingPromise = new Promise(function(resolve, reject) {
+                    // define root controller
+                    app.controller('uimgrCtrl',
+                      ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
+                      function($scope, $templateCache, $injector, $modal, $rootScope) {
                         AngularUtil.decorateScope($scope);
 
                         // add pages to main scope
@@ -366,82 +354,46 @@ module.exports = NoGapDef.component({
                             modalInstance.result.then(onOk, onDismiss);
                         };
 
-                        // call controller creation hook, if one was supplied
-                        if (onControllerCreation) {
-                            onControllerCreation();
-                        }
-
                         $injector.invoke(function() {
-                            // basic UI initialized
-                            This.signalReady();
+                            // basic skeleton initialized
+                            // return app object
+                            resolve(app);
                         });
                     }]);
 
-                app.controller('uiMenuCtrl', 
-                    ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
-                    function($scope) {
-                        AngularUtil.decorateScope($scope);
-                        menuScope = This.menuScope = $scope;
-                        $scope.navButtons = navButtons;
-                    }]);
+                    app.controller('uiMenuCtrl', 
+                        ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
+                        function($scope) {
+                            AngularUtil.decorateScope($scope);
+                            menuScope = This.menuScope = $scope;
+                            $scope.navButtons = navButtons;
+                        }]);
 
-	            // handle back button and manual browsing:
-	            window.onpopstate = function() {
-	                // go given address
-                    if (!this.addedHistoryEntry) return;
+    	            // handle back button and manual browsing:
+    	            window.onpopstate = function() {
+    	                // go given address
+                        if (!this.addedHistoryEntry) return;
 
-                    // TODO: This still doesn't work right
-                    this.lastAddress = history.state;
-	                this.gotoAddressBarAddress();
-	            }.bind(this);
-                
-                // add the view to the body
-                // this will also bootstrap our angular app
-                document.body.innerHTML += this.assets.template;
-
-                // return app object
-                return app;
+                        // TODO: This still doesn't work right
+                        this.lastAddress = history.state;
+    	                this.gotoAddressBarAddress();
+    	            }.bind(this);
+                    
+                    // add the view to the body
+                    // this will also bootstrap our angular app
+                    document.body.innerHTML += this.assets.view;
+                }.bind(this));
             },
 
             // ################################################################################################################
             // Manage UIMgr ready state
 
-            signalNotReady: function() {
-                ++this.expectedReadyCount;
-
-                // manage a timer for debugging purposes
-                if (this.signalTimeoutTimer) {
-                    // clear old timer
-                    clearTimeout(this.signalTimeoutTimer);
-                }
-                if (this.expectedReadyCount != this.readyCount) {
-                    // start new timer
-                    var debugTimeout = 3000;
-                    var oldExpectedReadyCount = this.expectedReadyCount
-                    var oldReadyCount = this.readyCount;
-                    this.signalTimeoutTimer = setTimeout(function() {
-                        if (this.expectedReadyCount == oldExpectedReadyCount &&
-                            this.readyCount == oldReadyCount) {
-                            console.error('UIMgr seems deadlocked. Make sure that your ' +
-                                '`signalNotReady` calls are always paired with `signalReady` calls. ' +
-                                'Also make sure that your `signalReady` calls can always be reached ' +
-                                'and are only called once.');
-                        }
-                    }.bind(this), debugTimeout);
-                }
-            },
-
-            signalReady: function() {
-                ++this.readyCount;
-                if (this.readyCount == this.expectedReadyCount) {
-                    setTimeout(function() {
-                        this.events.ready.fire();
-
-                        // we are ready now:
-                        // remove all previously registered listeners
-                        this.events.ready = new squishy.createEvent();
-                    }.bind(this));
-                }
+            /**
+             * Append given code to pendingPromise (e.g. for initialization)
+             */
+            enqueueTask: function(cb) {
+                return pendingPromise = pendingPromise
+                .then(cb);
             },
 
             /**
@@ -449,13 +401,8 @@ module.exports = NoGapDef.component({
              * or right away if it is already ready.
              */
             ready: function(cb) {
-                //console.log(this.readyCount +' / ' + this.expectedReadyCount)
-                if (this.expectedReadyCount != this.readyCount) {
-                    this.events.ready.addListener(cb);
-                }
-                else {
-                    cb.call(this);
-                }
+                return pendingPromise
+                .then(cb);
             },
 
 
@@ -480,7 +427,7 @@ module.exports = NoGapDef.component({
             /**
              * Add new content to the main container on the page
              */
-            addPage: function(component, pageName, content, buttonClass, parentPageName) {
+            registerPage: function(component, pageName, content, buttonData, parentPageName) {
                 var This = this;
 
                 console.assert(!pagesByPageName[pageName], 'Page name already exists. Currently, page names must be unique');
@@ -498,8 +445,12 @@ module.exports = NoGapDef.component({
                     group: group,
                     parentPageName: parentPageName,
                     active: false,
+                    scope: scope,
 
-                    toString: function() { return this.name; }
+                    toString: function() { return this.name; },
+                    invalidateView: function() {
+                        if (this.scope) this.scope.safeApply();
+                    }
                 };
 
                 // add parent<->child Association
@@ -522,8 +473,8 @@ module.exports = NoGapDef.component({
                 Object.defineProperty(component, 'activatePage', {
                     enumerable: true,
 
-                    value: function(force) {
-                        setActivePage(page, null, force);
+                    value: function(args, force) {
+                        return setActivePage(page, args, force);
                     }
                 });
 
@@ -539,12 +490,13 @@ module.exports = NoGapDef.component({
                 //          (http://getbootstrap.com/examples/justified-nav/)
 
                 // handle button
-                if (buttonClass) {
+                if (buttonData) {
                     // add nav button
                     var button = {
                         name: pageName,
                         pageName: pageName,
-                        cssClass: buttonClass,
+                        cssClass: buttonData.class,
+                        text: buttonData.text !== undefined ? buttonData.text : pageName,
                         show: true,
                         //tabindex: navButtons.length+1,
                         onClick: function() {
@@ -559,7 +511,7 @@ module.exports = NoGapDef.component({
                             this.urgentMarker = enabled;
 
                             // refresh menu
-                            menuScope.safeApply();
+                            invalidateMenuView();
                         },
 
                         // badge value
@@ -571,6 +523,17 @@ module.exports = NoGapDef.component({
                 }
 
                 this.addTemplate(page.templateName, content);
+            },
+
+            registerPageScope: function(component, scope) {
+                console.assert(component && component.page, 'Called `registerPageScope` on non-Page component: ' + component);
+                console.assert(scope, 'Missing argument `scope` when calling `UIMgr.registerPageScope`');
+
+                // decorate scope
+                AngularUtil.decorateScope(scope);
+
+                // remember page scope
+                component.page.scope = scope;
             },
 
             /**
@@ -670,12 +633,12 @@ module.exports = NoGapDef.component({
                 };
 
                 if (scope) {
-                    scope.safeApply();
+                    invalidateView();
                 }
             },
 
             onNavButtonClick: function(pageName) {
-                this.gotoPage(pageName);
+                return this.gotoPage(pageName);
             },
 
             /**
@@ -785,9 +748,10 @@ module.exports = NoGapDef.component({
                 if (path.length > 0) {
                     path = path.substring(1);
                 }
+
                 if (path.length == 0) {
                     // go to default page
-                    this.gotoDefaultPage();
+                    return this.gotoDefaultPage();
                 }
                 else {
                     // decompose the location's `path` and go to the page
@@ -812,7 +776,7 @@ module.exports = NoGapDef.component({
                     // get page args
                     var pageArgs = path.length > argsIdx ? path.substring(argsIdx) : null;
 
-                    this.gotoPage(pageName, pageArgs);
+                    return this.gotoPage(pageName, pageArgs);
                 }
             },
 
@@ -830,19 +794,18 @@ module.exports = NoGapDef.component({
                             // failed to go to this page before
                             break;
                         }
-            			this.gotoComponent(group.pageComponents[0]);
-                        return;
+            			return this.gotoComponent(group.pageComponents[0]);
             		}
             	};
 
-                console.error('Could not go to default page.');
+                return Promise.reject('Could not go to default page.');
             },
 
             /**
              * Go to the page of the given name.
              */
             gotoPage: function(pageName, pageArgs) {
-                this.gotoComponent(this.getComponentNameFromPageName(pageName), pageArgs);
+                return this.gotoComponent(this.getComponentNameFromPageName(pageName), pageArgs);
             },
             
             /**
@@ -855,8 +818,7 @@ module.exports = NoGapDef.component({
                 // check if component is page and whether user has required access rights
                 if (!pageGroup || !pageGroup.mayActivate()) {
                     // cannot access -> go to fallback page
-                    this.gotoDefaultPage();
-                    return;
+                    return this.gotoDefaultPage();
                 }
 
                 // request the given (and all other missing) components from server
@@ -880,11 +842,11 @@ module.exports = NoGapDef.component({
                     // now check if it's actually a page (component must be present for this check)
                     if (pagesByComponentName[componentName]) {
                         // activate it
-                        setActivePage(pagesByComponentName[componentName], pageArgs, true);
+                        return setActivePage(pagesByComponentName[componentName], pageArgs, true);
                     }
                     else {
                         // fall back to default
-                        this.gotoDefaultPage(pageGroup);
+                        return this.gotoDefaultPage(pageGroup);
                     }
                 //}.bind(this));}.bind(this));
                 }.bind(this));
