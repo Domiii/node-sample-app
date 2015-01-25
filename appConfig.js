@@ -22,7 +22,7 @@ var config = {
         'user'     : 'root',
         'password' : 'r00t',
         'port'     : '3306',
-        'database' : 'bjt',
+        'database' : 'bjt_test',
         'reconnectDelay':   '5'
     },
 

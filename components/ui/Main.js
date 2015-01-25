@@ -55,7 +55,10 @@ module.exports = NoGapDef.component({
                     'lib/normalize.css',
 
                     // custom styles
-                    'css/styles.css'
+                    'css/styles.css',
+
+                    //uimgr
+                    'css/uimgr.css'
                 ]
             }
         },
