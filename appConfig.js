@@ -31,7 +31,7 @@ var config = {
         'user'     : 'root',
         'password' : 'r00t',
         'port'     : '3306',
-        'database' : 'bjt',
+        'database' : 'my_db',
         'reconnectDelay':   '5'
     },
 
