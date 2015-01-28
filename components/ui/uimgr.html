@@ -25,7 +25,7 @@
   <script type="text/ng-template" id="UIMgr/navButton">
     <li ng-show="button.show" 
       ng-class="{ active: button.active }">
-      <a href="" title="{{ button.title }}" ng-click="button.onClick()">
+      <a href="" title="{{ button.getText() }}" ng-click="button.onClick()">
         <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
         <span ng-if="button.getText()">{{ button.getText() }}</span>
 

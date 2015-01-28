@@ -9,6 +9,8 @@ var NoGapDef = require('nogap').Def;
 
 
 module.exports = NoGapDef.component({
+    Namespace: 'bjt',
+    
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) { return {
         Assets: {
             AutoIncludes: {
@@ -49,7 +51,6 @@ module.exports = NoGapDef.component({
                     // some DOM + UI utilities
                     'js/DomUtil',
                     'js/angular_ui/timespan-picker',
-                    
                     // Array utilities
                     
                 ],
@@ -183,13 +184,13 @@ module.exports = NoGapDef.component({
              */
             {
                 otherComponents: [
-                    // Models + other components
-                    'Group'
+                    // Basics
+                    'Group',
                 ],
 
                 pageComponents: [
                     'HomePage',
-                    'AccountPage'
+                    'AccountPage',
                 ],
 
                 mayActivate: function() {
@@ -203,6 +204,7 @@ module.exports = NoGapDef.component({
              */
             {
                 pageComponents: [
+                    //'SettingsPage',
                 ],
 
                 mayActivate: function() {

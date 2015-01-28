@@ -382,8 +382,6 @@ module.exports = NoGapDef.component({
 
                 // handle button
                 if (buttonData) {
-                    var defaultTitle = Instance.Localizer.Default.lookUp('page.' + pageName);
-
                     /**
                      * Default values for nav buttons
                      */
@@ -391,16 +389,11 @@ module.exports = NoGapDef.component({
                         page: page,
                         show: true,
 
-                        title: defaultTitle,
-
-                        text: buttonData.text === undefined ? 
-                            defaultTitle : 
-                            undefined,
-
                         right: false,
 
                         getText: function() {
-                            return this.text;
+                            return this.text !== undefined ? this.text :
+                                Instance.Localizer.Default.lookUp('page.' + pageName);
                         },
 
                         //tabindex: navButtons.length+1,
@@ -813,7 +806,6 @@ module.exports = NoGapDef.component({
 
                         // invalid view
                         invalidateView();
-                        console.log('page activated: ' + newPage);
 
                         // fire event
                         This.events.pageActivated.fire(newPage);
