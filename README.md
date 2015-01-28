@@ -6,7 +6,7 @@ Simple web application built with [Node](http://nodejs.org/), [MySQL](http://www
 3. Install [Node](http://nodejs.org/)
     1. [Add `Node` to your global PATH](http://www.c-sharpcorner.com/UploadFile/cb6e16/introduction-to-node-js-and-its-installation-on-windows/Images/image3.gif)
 4. Install a Git client, such as [MSysgit](https://msysgit.github.io/) [Windows] or [others](http://git-scm.com/downloads)
-    1. [Add `git` to your global PATH](http://www.jinweijie.com/wp-content/uploads/2011/12/image1.png)
+    1. [Add `git` (and, on Windows, include UNIX TOOLS) to your global PATH](http://www.jinweijie.com/wp-content/uploads/2011/12/image1.png)
 5. Open a command line, aka shell, aka terminal [e.g. `cmd` on Windows]
 6. Go to your code folder, using `cd`
 7. Run: `git clone https://github.com/Domiii/node-sample-app.git` [to download this code]
