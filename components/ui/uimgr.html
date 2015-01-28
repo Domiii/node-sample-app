@@ -1,24 +1,52 @@
 <div id="ng-app" class="fill" ng-app="app" ng-controller="uimgrCtrl">
 
   <!-- OK <-> Cancel Modal dialog template -->
-  <script type="text/ng-template" id="okCancelModal.html">
-      <div class="modal-header">
-          <h3 class="modal-title">{{okCancelModalData.title}}</h3>
-      </div>
-      <div class="modal-body">
-          {{okCancelModalData.body}}
-      </div>
-      <div class="modal-footer">
-        <!-- OK Button -->
-        <a class="container-stretched btn btn-lg btn-success" style="display:inline"
-            ng-click="ok()">
-            <localize key="Ok" />
-        </a>
-        <a class="container-stretched btn btn-lg btn-warning" style="display:inline"
-            ng-click="cancel()">
-            <localize key="Cancel" />
-        </a>
-      </div>
+  <script type="text/ng-template" id="UIMgr/okCancelModal">
+    <div class="modal-header">
+        <h3 class="modal-title">{{okCancelModalData.title}}</h3>
+    </div>
+    <div class="modal-body">
+        {{okCancelModalData.body}}
+    </div>
+    <div class="modal-footer">
+      <!-- OK Button -->
+      <a class="container-stretched btn btn-lg btn-success" style="display:inline"
+          ng-click="ok()">
+          <localize key="Ok" />
+      </a>
+      <a class="container-stretched btn btn-lg btn-warning" style="display:inline"
+          ng-click="cancel()">
+          <localize key="Cancel" />
+      </a>
+    </div>
+  </script>
+
+  <!-- nav-button element template -->
+  <script type="text/ng-template" id="UIMgr/navButton">
+    <li ng-show="button.show" 
+      ng-class="{ active: button.active }">
+      <a href="" title="{{ button.title }}" ng-click="button.onClick()">
+        <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
+        <span ng-if="button.getText()">{{ button.getText() }}</span>
+
+        <!-- Button decorations -->
+        <span style="font-size: 1em;">
+          <!-- Orange Exclamation Mark -->
+          <i ng-if="button.urgentMarker"
+              style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
+              class="fa fa-exclamation">
+          </i>
+
+          <!-- Point badge -->
+          <span ng-if="button.badgeValue"
+              style="position: absolute; bottom: .5em; right: .2em;"
+              class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
+                  ><span
+                  >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
+          ></span>
+        </span>
+      </a>
+    </li>
   </script>
 
   <!-- Menu -->
@@ -35,36 +63,15 @@
           </button>
         </div>
 
-        <!-- Collect the nav links, forms, and other content for toggling -->
+        <!-- Navigation buttons -->
         <div class="collapse navbar-collapse" id="main-menu">
           <ul class="nav navbar-nav">
-            <li ng-repeat="button in navButtons"
-              ng-show="button.show" 
-              ng-class="{ active: button.active }">
-                <a href="" title="{{ localize(button.name) }}" ng-click="button.onClick()">
-                  <i ng-if="button.cssClass" class="{{ button.cssClass }}"></i>
-                  <span ng-if="button.text">{{ button.text }}</span>
-
-                  <!-- Button decorations -->
-                  <span style="font-size: .5em;">
-                    <!-- Orange Exclamation Mark -->
-                    <i
-                        ng-show="button.urgentMarker"
-                        style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
-                        class="fa fa-exclamation">
-                    </i>
-
-                    <!-- Point badge -->
-                    <span
-                        ng-show="button.badgeValue"
-                        style="position: absolute; bottom: .5em; right: .2em;"
-                        class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
-                            ><span
-                            >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
-                    ></span>
-                  </span>
-                </a>
-              </li>
+            <nav-button ng-repeat="button in navButtons.left">
+            </nav-button>
+          </ul>
+          <ul class="nav navbar-nav" style="float: right">
+            <nav-button ng-repeat="button in navButtons.right">
+            </nav-button>
           </ul>
             
         </div><!-- /.navbar-collapse -->

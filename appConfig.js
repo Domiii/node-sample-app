@@ -4,7 +4,7 @@ var config = {
     // we are in development mode
     'dev': 1,
 
-    'title': 'BJT Online',
+    'title': 'Awesome Presentations!',
 
     /**
      * Whether to open the command line
@@ -104,7 +104,8 @@ var config = {
             'ui/guest/GuestPage',
 
             // user pages:
-            'ui/home/HomePage'
+            'ui/home/HomePage',
+            'ui/account/AccountPage',
         ]
     },
 };

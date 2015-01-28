@@ -8,53 +8,65 @@ var NoGapDef = require('nogap').Def;
 module.exports = NoGapDef.component({
     /**
      * Everything defined in `Host` lives only on the host side (Node).
+     * 
      */
-    Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) { return {
-        Assets: {
-            Files: {
-                string: {
-                    template: 'GuestPage.html'
-                }
-            },
-            AutoIncludes: {
-            }
-        },
-           
+    Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
+    	var Facebookbla;
 
-        Private: {
-            onClientBootstrap: function() {
-            },
-        },
+    	return {
+	        Assets: {
+	            Files: {
+	                string: {
+	                    template: 'GuestPage.html'
+	                }
+	            },
+	            AutoIncludes: {
+	            }
+	        },
 
-        Public: {
+	        __ctor: function() {
+				//Facebookbla = require(...);
+	        },
+	           
 
-            /**
-             * User clicked on `Login` button.
-             */
-            tryLogin: function(userName, preferredLocale) {
-                userName = Shared.ValidationUtil.validateNameOrTitle(userName);
-                if (!userName) {
-                    // tell client that login failed
-                    return Promise.reject('error.login.auth');
-                }
+	        Private: {
+	            onClientBootstrap: function() {
+	            },
+	        },
 
-                var authData = {userName: userName};
-                return this.Instance.User.tryLogin(authData, preferredLocale);
-            }
-        },
-    };}),
+	        Public: {
+
+	            /**
+	             * User clicked on `Login` button.
+	             */
+	            tryLogin: function(userName, preferredLocale) {
+	                userName = Shared.ValidationUtil.validateNameOrTitle(userName);
+	                if (!userName) {
+	                    // tell client that login failed
+	                    return Promise.reject('error.login.auth');
+	                }
+
+	                var authData = {userName: userName};
+	                return this.Instance.User.tryLogin(authData, preferredLocale);
+	            }
+	        },
+	    };
+	}),
     
     
     /**
-     * Everything defined in `Client` lives only in the client (browser).
+     * Everything defined in `Client` lives only in the client.
+     *
      */
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
         var localizer;
         var scope;
+        var ThisInstance;
 
         return {
             initClient: function() {
                 // get some default utilities
+                ThisInstance = this;
                 localizer = Instance.Localizer.Default;
             },
 
@@ -62,13 +74,11 @@ module.exports = NoGapDef.component({
              * Called by `UIMgr`
              */
             setupUI: function(UIMgr, app) {
-                var This = this;
-
                 // create login controller
                 // see: http://stackoverflow.com/questions/22589324/angular-js-basic-controller-return-error
                 // see: http://scotch.io/tutorials/javascript/submitting-ajax-forms-the-angularjs-way
                 app.lazyController('guestCtrl', ['$scope', function($scope) {
-                    AngularUtil.decorateScope($scope);
+                    UIMgr.registerPageScope(ThisInstance, $scope);
                     scope = $scope;
 
                     // data to populate the login form
@@ -86,7 +96,8 @@ module.exports = NoGapDef.component({
                         // send login request to host
                         $scope.errorMessage = null;
                         $scope.busy = true;
-                        This.host.tryLogin($scope.loginData.userName, Instance.User.getCurrentLocale())
+
+                        ThisInstance.host.tryLogin($scope.loginData.userName, Instance.User.getCurrentLocale())
                         .finally(function() {
                             $scope.busy = false;
                         })

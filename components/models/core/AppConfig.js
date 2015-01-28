@@ -5,8 +5,8 @@
 
 var NoGapDef = require('nogap').Def;
 
-var componentsRoot = '../../';
-var libRoot = componentsRoot + '../lib/';
+var appRoot = '../../../';
+var libRoot = appRoot + 'lib/';
 var SequelizeUtil = require(libRoot + 'SequelizeUtil');
 
 module.exports = NoGapDef.component({
@@ -17,29 +17,24 @@ module.exports = NoGapDef.component({
 
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
     	var ConfigModel;
-        var UserRole,
-            ActionType;
+        var UserRole;
+
+        var appConfigJs;
 
         return {
             __ctor: function () {
+                appConfigJs = require(appRoot + 'appConfig');
             },
 
-            initHost: function() {
+            initHost: function(app, cfg) {
                 UserRole = Shared.User.UserRole;
 
-                this.defaultConfig = {
-                    'defaultLocale': 'en',
+                /**
+                 * Min privilege level required to use the system.
+                 */
+                appConfigJs.minAccessRole = Shared.User.UserRole.Student;
+                this.defaultConfig = appConfigJs;
 
-                    /**
-                     * Min privilege level required to use the system.
-                     */
-                    'minAccessRole': Shared.User.UserRole.Student,
-
-                    /**
-                     * If # ratings is below this number, do not display the rating results yet.
-                     */
-                    'minItemRatingsToDisplay': 1,
-                };
             },
 
             /**
