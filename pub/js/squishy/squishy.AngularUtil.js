@@ -15,7 +15,17 @@
 	            }
 	        } else {
 	            this.$apply(fn);
+	            //this.applyAndMeasure(fn);
 	        }
+	    },
+
+        /**
+         * @see http://stackoverflow.com/a/23066423/2228771
+         */
+	    applyAndMeasure: function(fn) {
+	    	var startTime = performance.now();
+	    	this.$apply(fn); 
+	    	console.log(performance.now() - startTime);
 	    },
 
 	    /**
@@ -66,10 +76,6 @@
         		// bind and add to scope
         		$scope[memberName] = member;
         	}
-
-        	// make sure `handleError` is bound for conveneince 
-        	//	(we don't want other methods to be bound because it messes with Angular's own scope functions!)
-        	$scope.handleError = $scope.handleError.bind($scope);
         }
     };
 })();

@@ -52,8 +52,10 @@ module.exports = NoGapDef.component({
                     
                 }]);
 
-                // register page
-                Instance.UIMgr.addPage(this, 'Contact', this.assets.template, 'fa fa-envelope-o');
+                // register page envelope-o
+                Instance.UIMgr.registerPage(this, 'Contact', this.assets.template, {
+                    cssClasses: 'fa fa-envelope-o'
+                });
             },
             
             /**

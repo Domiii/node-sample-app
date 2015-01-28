@@ -1,7 +1,7 @@
 /**
  * The UI Manager component:
  *  - Takes care of `Page` and `UIComponent` registration
- * 	- Keeps the address bar up to date
+ *  - Keeps the address bar up to date
  *  - Handles all kinds of other aspects of navigation and the app frontend skeleton
  */
 "use strict";
@@ -31,8 +31,8 @@ module.exports = NoGapDef.component({
 
                 Files: {
                     string: {
-                        // UI mgr template
-                        template: 'uimgr.html'
+                        // ui mgr template
+                        template: 'UIMgr.html'
                     }
                 }
             },
@@ -55,7 +55,10 @@ module.exports = NoGapDef.component({
         var scope, menuScope;
 
         // buttons in the main menu
-        var navButtons = [];
+        var navButtons = {
+            left: [],
+            right: []
+        };
 
         // current state info
         var activePage, activeButton;
@@ -73,146 +76,29 @@ module.exports = NoGapDef.component({
         var templateCache;
         var clientInitialized;
 
+        // during initialization or other critical operations, the pendingPromise
+        //      provides a command queue to keep things in sync
+        var pendingPromise;
+
         /**
          * The main Angular module
          */
         var app;
 
-        // ####################################################################################################################
-        // Handle navigation (private)
+    
+        /**
+         * Tell Angular to re-render dirty variables inside the main view.
+         * @see http://stackoverflow.com/a/23769600/2228771
+         */
+        var invalidateView = function() {
+            scope.safeApply();
+        };
 
         /**
-         * Recursively call `onPageDeactivate` on component and all children.
+         * Re-render menu.
          */
-        var callOnPageDeactivateOnComponent = function(component, newPage) {
-            var onPageDeactivateCb = component.onPageDeactivate;
-            if (onPageDeactivateCb instanceof Function) {
-                onPageDeactivateCb(newPage);
-            }
-            else if (onPageDeactivateCb && onPageDeactivateCb.pre) {
-                // `onPageDeactivate` is an object with optional `pre` and `post` properties
-                onPageDeactivateCb.pre.call(component, newPage);
-            }
-
-            // recursively call `onPageDeactivate` on children
-            component.forEachPageChild(function(childComponent) {
-                callOnPageDeactivateOnComponent(childComponent, newPage);
-            });
-
-            if (onPageDeactivateCb && onPageDeactivateCb.post) {
-                // `onPageDeactivate` is an object with optional `pre` and `post` properties
-                onPageDeactivateCb.post.call(component, newPage);
-            }
-        };
-
-        var onPageDeactivate = function(page, newPage) {
-            // fire event
-            callOnPageDeactivateOnComponent(page.component, newPage);
-
-            page.active = false;
-            if (page.navButton) {
-                page.navButton.active = false;
-            }
-        };
-
-
-        /**
-         * Recursively call `onPageActivate` on component and all children.
-         */
-        var callOnPageActivateOnComponent = function(component, pageArgs) {
-            var onPageActivateCb = component.onPageActivate;
-            if (onPageActivateCb instanceof Function) {
-                onPageActivateCb.call(component, pageArgs);
-            }
-            else if (onPageActivateCb && onPageActivateCb.pre) {
-                // `onPageActivate` is an object with optional `pre` and `post` properties
-                onPageActivateCb.pre.call(component, pageArgs);
-            }
-
-            // recursively call `onPageActivate` on children
-            component.forEachPageChild(function(childComponent) {
-                callOnPageActivateOnComponent(childComponent, pageArgs);
-            });
-
-            if (onPageActivateCb && onPageActivateCb.post) {
-                // `onPageActivate` is an object with optional `pre` and `post` properties
-                onPageActivateCb.post.call(component, pageArgs);
-            }
-        };
-        
-        var onPageActivate = function(page, pageArgs) {
-            // set activePage
-            activePage = page;
-
-            // update title
-            var pageTitle = page.getTitle ? page.getTitle() : page.name;
-            document.title =  pageTitle + ' - ' + Instance.UIMgr.appName;
-
-            // set active button:
-            if (activeButton) {
-                // only one active button in the main menu (for now)
-                activeButton.active = false;
-            }
-            page.active = true;
-            if (page.navButton) {
-                page.navButton.active = true;
-                activeButton = page.navButton;
-            }
-            else if (page.parentPageName) {
-                // TODO: Make this more consistent
-                var parentPage = pagesByPageName[page.parentPageName];
-                parentPage.navButton.active = true;
-                activeButton = parentPage.navButton;
-            }
-            
-            // add history entry
-            Instance.UIMgr.updateAddressBar(page.component, pageArgs, true);
-            
-            // re-compute arguments
-            pageArgs = pageArgs || (page.component.getPageArgs && page.component.getPageArgs());
-
-            callOnPageActivateOnComponent(page.component, pageArgs);
-        };
-                
-        /**
-         * Deactivate current and activate new page.
-         */
-        var setActivePage = function(newPage, pageArgs, force) {
-        	var This = Instance.UIMgr;
-
-            // we need to defer setup because Angular might not be ready yet
-            This.ready(function() {
-                if (!force && activePage == newPage) {
-                    // same page -> Don't do anything
-
-                    // same page -> Only update address arguments
-                    //Instance.UIMgr.updateAddressBar(newPage.component, pageArgs, true);
-                }
-                else {
-                    if (activePage) {
-                        // deactivate current page
-                        var result = onPageDeactivate(activePage, newPage);
-                        // if (result === false) {
-                        //     // page change was cancelled
-                        //     return;
-                        // }
-                    }
-                    if (!newPage) {
-                        // nothing happens (should probably never happen)
-                        activePage = null;
-                    }
-                    else {
-                        // activate new page
-                        onPageActivate(newPage, pageArgs);
-                    }
-
-                    // invalid view
-                    scope.safeApply();
-
-                    // fire event
-                    This.events.pageActivated.fire(newPage);
-                }
-            });
+        var invalidateMenuView = function() {
+            menuScope.safeApply();
         };
 
         return {
@@ -221,28 +107,47 @@ module.exports = NoGapDef.component({
             // UIMgr initialization
 
             __ctor: function() {
-                // setup event stuff
-                this.readyCount = 0;
-                this.expectedReadyCount = 1;
+                // create events
+                this.events = {
+                    pageActivated: squishy.createEvent(this)
+                };
+            },
 
-            	this.events = {
-                    ready: squishy.createEvent(this),
-            		pageActivated: squishy.createEvent(this)
-            	};
+            /**
+             * Create and register UIMgr's own directives
+             */
+            _addDirectives: function(app) {
+                app.lazyDirective('navButton', function() {
+                    var linkFun = function() {
+
+                    }.bind(this);
+
+                    return {
+                        restrict: 'E',
+                        link: linkFun,
+                        replace: true,
+                        templateUrl: 'UIMgr/navButton'
+                    };
+                });
             },
             
             /**
              * This is called by the outside to kickstart this whole thing.
              */
-            initUIMgr: function(appName, includeModules, onControllerCreation) {
-            	console.assert(!clientInitialized, 'Tried to initialize UIMgr more than once.');
+            initUIMgr: function(appName, _app) {
+                console.assert(!clientInitialized, 'Tried to initialize UIMgr more than once.');
                 clientInitialized = true;
+
+                app = _app;
                 this.appName = appName;
 
-                // Angular setup
-                // Added modules: 
-                //  - 'ui.bootstrap' (http://angular-ui.github.io/bootstrap/)
-                app = angular.module('app', includeModules || []);
+                /**
+                 * @see http://stackoverflow.com/a/23066423/2228771
+                 */
+                window.measureUIPerformance = function() {
+                    angular.element('#ng-app').injector()
+                    .invoke(function($rootScope) { var a = performance.now(); $rootScope.$apply(); console.log(performance.now()-a); });
+                };
 
                 // define lazy version as non-lazy version first.
                 // Once ready + bootstrapped, they will be overridden with the actual lazy version of things.
@@ -266,43 +171,6 @@ module.exports = NoGapDef.component({
                     // we need this for lazy registration of new directives after Angular's bootstrap
                     // see: http://stackoverflow.com/a/24228135/2228771
                     app.lazyDirective = $compileProvider.directive;
-
-                    // app.lazyController = function(ctrlName, ctorDIArray) {
-                    //     console.assert(ctorDIArray instanceof Array), 
-                    //         'The second argument to `lazyController` must be a ctor in array form, decorated with DI annotations.');
-                        
-                    //     // we are still waiting for this guy
-                    //     ++this.expectedReadyCount;
-
-                    //     var isReady;
-
-                    //     // add $injector, so we can get a grip on when this ctor was created
-                    //     var iCtor = ctorDIArray.length-1;
-                    //     var ctor = ctorDIArray[iCtor];
-                    //     console.assert(ctor instanceof Function, 
-                    //         'Invalid constructor. The last element in the array handed to `lazyController` must be a ctor function.');
-
-                    //     // inject ready maker
-                    //     ctorDIArray[iCtor] = function() {
-                    //         // call original ctor
-                    //         ctor.apply(this, arguments);
-
-                    //         // 
-                    //         var $injector = arguments[arguments.length-1];
-
-                    //         // ctor was invoked -> We are now (probably) ready.
-                    //         if (!isReady) {
-                    //             isReady = true;
-                    //             signalReady();
-                    //         }
-                    //     };
-
-                    //     ctorDIArray.splice(nDeps, 0, "$injector");
-                    //     $controllerProvider.register(ctrlName, ctorDIArray);
-                    // }.bind(this);
-
-                    // TODO: Inject a callback for guessing ready state
-
                 }]).
                 config( ['$provide', function ($provide){
                     $provide.decorator('$browser', ['$delegate', function ($delegate) {
@@ -314,12 +182,15 @@ module.exports = NoGapDef.component({
                         return $delegate;
                     }]);
                 }]);
-                
-                // define root controller
+
+                this._addDirectives(app);
+                    
                 var This = this;
-                app.controller('uimgrCtrl',
-                    ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
-                    function($scope, $templateCache, $injector, $modal, $rootScope) {
+                return pendingPromise = new Promise(function(resolve, reject) {
+                    // define root controller
+                    app.controller('uimgrCtrl',
+                      ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
+                      function($scope, $templateCache, $injector, $modal, $rootScope) {
                         AngularUtil.decorateScope($scope);
 
                         // add pages to main scope
@@ -342,7 +213,7 @@ module.exports = NoGapDef.component({
                         // see: http://angular-ui.github.io/bootstrap/#modal
                         $scope.okCancelModal = function (size, title, body, onOk, onDismiss) {
                             var modalInstance = $modal.open({
-                                templateUrl: 'okCancelModal.html',
+                                templateUrl: 'UIMgr/okCancelModal',
                                 size: size,
                                 resolve: {
                                     items: function () {
@@ -366,82 +237,47 @@ module.exports = NoGapDef.component({
                             modalInstance.result.then(onOk, onDismiss);
                         };
 
-                        // call controller creation hook, if one was supplied
-                        if (onControllerCreation) {
-                            onControllerCreation();
-                        }
-
                         $injector.invoke(function() {
-                            // basic UI initialized
-                            This.signalReady();
+                            // basic skeleton initialized
+                            // return app object
+                            resolve(app);
                         });
                     }]);
 
-                app.controller('uiMenuCtrl', 
-                    ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
-                    function($scope) {
-                        AngularUtil.decorateScope($scope);
-                        menuScope = This.menuScope = $scope;
-                        $scope.navButtons = navButtons;
-                    }]);
+                    app.controller('uiMenuCtrl', 
+                        ['$scope', '$templateCache', '$injector',  '$modal', '$rootScope',
+                        function($scope) {
+                            AngularUtil.decorateScope($scope);
+                            menuScope = This.menuScope = $scope;
+                            $scope.navButtons = navButtons;
+                        }]);
 
-	            // handle back button and manual browsing:
-	            window.onpopstate = function() {
-	                // go given address
-                    if (!this.addedHistoryEntry) return;
+                    // handle back button and manual browsing:
+                    window.onpopstate = function() {
+                        // go given address
+                        if (!this.addedHistoryEntry) return;
 
-                    // TODO: This still doesn't work right
-                    this.lastAddress = history.state;
-	                this.gotoAddressBarAddress();
-	            }.bind(this);
-                
-                // add the view to the body
-                // this will also bootstrap our angular app
-                document.body.innerHTML += this.assets.template;
-
-                // return app object
-                return app;
+                        // TODO: This still doesn't work right
+                        this.lastAddress = history.state;
+                        this.gotoAddressBarAddress();
+                    }.bind(this);
+                    
+                    // add the view to the body
+                    // this will also bootstrap our angular app
+                    document.body.innerHTML += this.assets.template;
+                }.bind(this));
             },
+
 
             // ################################################################################################################
             // Manage UIMgr ready state
 
-            signalNotReady: function() {
-                ++this.expectedReadyCount;
-
-                // manage a timer for debugging purposes
-                if (this.signalTimeoutTimer) {
-                    // clear old timer
-                    clearTimeout(this.signalTimeoutTimer);
-                }
-                if (this.expectedReadyCount != this.readyCount) {
-                    // start new timer
-                    var debugTimeout = 3000;
-                    var oldExpectedReadyCount = this.expectedReadyCount
-                    var oldReadyCount = this.readyCount;
-                    this.signalTimeoutTimer = setTimeout(function() {
-                        if (this.expectedReadyCount == oldExpectedReadyCount &&
-                            this.readyCount == oldReadyCount) {
-                            console.error('UIMgr seems deadlocked. Make sure that your ' +
-                                '`signalNotReady` calls are always paired with `signalReady` calls. ' +
-                                'Also make sure that your `signalReady` calls can always be reached ' +
-                                'and are only called once.');
-                        }
-                    }.bind(this), debugTimeout);
-                }
-            },
-
-            signalReady: function() {
-                ++this.readyCount;
-                if (this.readyCount == this.expectedReadyCount) {
-                    setTimeout(function() {
-                        this.events.ready.fire();
-
-                        // we are ready now:
-                        // remove all previously registered listeners
-                        this.events.ready = new squishy.createEvent();
-                    }.bind(this));
-                }
+            /**
+             * Append given code to pendingPromise (e.g. for initialization)
+             */
+            enqueueTask: function(cb) {
+                return pendingPromise = pendingPromise
+                .then(cb);
             },
 
             /**
@@ -449,13 +285,8 @@ module.exports = NoGapDef.component({
              * or right away if it is already ready.
              */
             ready: function(cb) {
-                //console.log(this.readyCount +' / ' + this.expectedReadyCount)
-                if (this.expectedReadyCount != this.readyCount) {
-                    this.events.ready.addListener(cb);
-                }
-                else {
-                    cb.call(this);
-                }
+                return pendingPromise
+                .then(cb);
             },
 
 
@@ -480,7 +311,7 @@ module.exports = NoGapDef.component({
             /**
              * Add new content to the main container on the page
              */
-            addPage: function(component, pageName, content, buttonClass, parentPageName) {
+            registerPage: function(component, pageName, content, buttonData, parentPageName) {
                 var This = this;
 
                 console.assert(!pagesByPageName[pageName], 'Page name already exists. Currently, page names must be unique');
@@ -498,9 +329,20 @@ module.exports = NoGapDef.component({
                     group: group,
                     parentPageName: parentPageName,
                     active: false,
+                    scope: scope,
 
-                    toString: function() { return this.name; }
+                    toString: function() { return this.name; },
+                    invalidateView: function() {
+                        if (this.scope) this.scope.safeApply();
+                    }
                 };
+
+                if (!component.getPageArgs) {
+                    // make sure, getPageArgs function exists
+                    component.getPageArgs = function() {
+                        return '';
+                    };
+                }
 
                 // add parent<->child Association
                 if (parentPageName) {
@@ -522,8 +364,8 @@ module.exports = NoGapDef.component({
                 Object.defineProperty(component, 'activatePage', {
                     enumerable: true,
 
-                    value: function(force) {
-                        setActivePage(page, null, force);
+                    value: function(args, force) {
+                        return This._setActivePage(page, args, force);
                     }
                 });
 
@@ -539,19 +381,32 @@ module.exports = NoGapDef.component({
                 //          (http://getbootstrap.com/examples/justified-nav/)
 
                 // handle button
-                if (buttonClass) {
-                    // add nav button
-                    var button = {
-                        name: pageName,
-                        pageName: pageName,
-                        cssClass: buttonClass,
+                if (buttonData) {
+                    var defaultTitle = Instance.Localizer.Default.lookUp('page.' + pageName);
+
+                    /**
+                     * Default values for nav buttons
+                     */
+                    var buttonDefaults = {
+                        page: page,
                         show: true,
-                        //tabindex: navButtons.length+1,
-                        onClick: function() {
-                            This.onNavButtonClick(pageName);
+
+                        title: defaultTitle,
+
+                        text: buttonData.text === undefined ? 
+                            defaultTitle : 
+                            undefined,
+
+                        right: false,
+
+                        getText: function() {
+                            return this.text;
                         },
 
-                        // TODO: Generalize below customizations
+                        //tabindex: navButtons.length+1,
+                        onClick: function() {
+                            This.gotoPage(this.page.name);
+                        },
 
                         // urgent marker
                         urgentMarker: false,
@@ -559,18 +414,46 @@ module.exports = NoGapDef.component({
                             this.urgentMarker = enabled;
 
                             // refresh menu
-                            menuScope.safeApply();
+                            invalidateMenuView();
                         },
 
                         // badge value
-                        badgeValue: 0
+                        badgeValue: 0,
                     };
 
+                    // merge defaults into buttonData
+                    var button = squishy.mergeWithoutOverride(buttonData, buttonDefaults);
+
+                    // store button
                     page.navButton = button;
-                    navButtons.push(button);
+
+                    var buttons = button.right ? navButtons.right : navButtons.left;
+                    buttons.push(button);
                 }
 
                 this.addTemplate(page.templateName, content);
+            },
+
+            /**
+             * Call this when creating the root scope of a page
+             */
+            registerPageScope: function(component, scope) {
+                console.assert(component && component.page, 'Called `registerPageScope` on non-Page component: ' + component);
+                console.assert(scope, 'Missing argument `scope` when calling `UIMgr.registerPageScope`');
+
+                // decorate scope
+                AngularUtil.decorateScope(scope);
+
+                var page = component.page;
+
+                // remember page.scope and scope.page
+                page.scope = scope;
+                scope.page = page;
+
+                scope.$on('$destroy', function() {
+                    // un-register scope
+                    page.scope = null;
+                });
             },
 
             /**
@@ -578,12 +461,369 @@ module.exports = NoGapDef.component({
              * @see http://jsfiddle.net/8Bf8m/33/
              */
             addTemplate: function(templateName, content) {
-                console.assert(templateName && content, 'Invalid template data');
+                if (!templateName || !content) {
+                    throw new Error('Invalid template data');
+                }
                 templateCache.put(templateName, content);
             },
 
             // ################################################################################################################
-            // Some Events
+            // Events triggered directly by the server (or by client)
+
+            /**
+             * User privs changed ->
+             * Re-validate which buttons and pages to show.
+             */
+            revalidatePagePermissions: function() {
+                if (!clientInitialized) return;
+
+                // Revalidate whether user is still allowed to see the current page or buttons
+                for (var i = 0; i < pageGroups.length; ++i) {
+                    var group = pageGroups[i];
+                    for (var j = 0; j < group.pages.length; ++j) {
+                        var page = group.pages[j];
+                        if (page.navButton) {
+                            page.navButton.show = group.mayActivate();
+                        }
+                    }
+                }
+
+                // navigate to where user wants to go
+                this.gotoAddressBarAddress();
+            },
+
+
+            // ####################################################################################################################
+            // Navigation and page activation
+
+            /**
+             * We leave the current page because we are not supposed to be on it.
+             * In that case, we want to go back to the last page and remove the current page from the history.
+             * However it is not possible to rewrite browser history (yet).
+             * So we have to track everything ourselves.
+             */
+            leaveCurrentPage: function() {
+                if (!activePage) return;
+
+                // TODO: Track all history and enable deleting of entries and smarter navigation
+
+                // for now, we just settle with the fact that the page is still in the history and go back
+                //gotoPage('Home');
+                history.back();
+            },
+
+            /**
+             * Use a stupid heuristic to get component name from page name
+             */
+            getComponentNameFromPageName: function(pageName) {
+                return pageName + 'Page';
+            },
+
+            /**
+             * Recursively get full path of page in page tree.
+             */
+            getPageBasePath: function(currentPage) {
+                var parentPage = currentPage.parent;
+                var path = '/' + currentPage.name;
+                if (parentPage) {
+                    // recurse
+                    path = this.getPageBasePath(parentPage) + path;
+                }
+                return path;
+            },
+
+
+            /**
+             * Go to the state encoded in the current path of the address bar
+             */
+            gotoAddressBarAddress: function() {
+                // get path
+                //var path = window.location.href.substring(origin.length);
+                var path = window.location.pathname + window.location.search
+                     + window.location.hash;
+                if (path.length > 0) {
+                    path = path.substring(1);
+                }
+
+                if (path.length == 0) {
+                    // go to default page
+                    return this.gotoDefaultPage();
+                }
+                else {
+                    // decompose the location's `path` and go to the page
+                    var pathObj = path.split('/');
+                    var pageName;
+                    var argsIdx = 0;
+                    for (var i = 0; i < pathObj.length; ++i) {
+                        var _pageName = pathObj[i];
+                        while (_pageName.endsWith('#')) {
+                            // sometimes, a hash steals itself into the name
+                            _pageName = _pageName.substring(0, _pageName.length-1);
+                        }
+                        var componentName = this.getComponentNameFromPageName(_pageName);
+                        if (!pageGroupsByComponentName[componentName]) {
+                            // this is not a valid page name -> Probably an argument
+                            break;
+                        }
+                        pageName = _pageName;
+                        argsIdx += pageName.length + 1;
+                    }
+
+                    // get page args
+                    var pageArgs = path.length > argsIdx ? path.substring(argsIdx) : null;
+
+                    return this.gotoPage(pageName, pageArgs);
+                }
+            },
+
+            /**
+             * Fallback page when user-selection is not valid.
+             * WARNING: This code is fragile.
+             *      If there is a small error in the routing logic, this call can easily cause an infinite loop.
+             */
+            gotoDefaultPage: function(lastTriedGroup) {
+                // go to first page of first allowed group
+                for (var i = 0; i < pageGroups.length; ++i) {
+                    var group = pageGroups[i];
+                    if (group.mayActivate()) {
+                        if (group == lastTriedGroup) {
+                            // failed to go to this page before
+                            break;
+                        }
+                        return this.gotoComponent(group.pageComponents[0]);
+                    }
+                };
+
+                return Promise.reject('Could not go to default page.');
+            },
+
+            /**
+             * Go to the page of the given name.
+             */
+            gotoPage: function(pageName, pageArgs) {
+                return this.gotoComponent(this.getComponentNameFromPageName(pageName), pageArgs);
+            },
+            
+            /**
+             * Prepare going to the page that is represented by the component of the given name.
+             */
+            gotoComponent: function(componentName, pageArgs) {
+                // get all components of the same group
+                var pageGroup = pageGroupsByComponentName[componentName];
+
+                // check if component is page and whether user has required access rights
+                if (!pageGroup || !pageGroup.mayActivate()) {
+                    // cannot access -> go to fallback page
+                    return this.gotoDefaultPage();
+                }
+
+                // Start by getting the set of all allowed pageGroups' components.
+                var groupComponents = [];
+                pageGroups.forEach(function(pageGroup) {
+                    if (pageGroup.mayActivate()) {
+                        groupComponents.push.apply(groupComponents, pageGroup.allComponents);
+                    }
+                });
+
+                // Then request all currently allowed components from server (if not present yet).
+                return Tools.requestClientComponents(groupComponents)
+                .then(function() {
+                    console.assert(pages.length, 
+                        'Tried to goto page `' + componentName + '` when there was no page registered.');
+
+                    //var comp = this.Instance[componentName];
+
+                    // now check if it's actually a page (component must be present for this check)
+                    if (pagesByComponentName[componentName]) {
+                        // activate it
+                        return this._setActivePage(pagesByComponentName[componentName], pageArgs, true);
+                    }
+                    else {
+                        // fall back to default
+                        console.error('Tried to navigate to non-page component: ' + componentName);
+                        return this.gotoDefaultPage(pageGroup);
+                    }
+                //}.bind(this));}.bind(this));
+                }.bind(this));
+                //}.bind(this));
+            },
+
+            /**
+             * Display current page location in address bar (and add history entry).
+             * Does not do anything if the given component is not the active page and `force` is `false`.
+             */
+            updateAddressBar: function(component, pageArgs, force) {
+                if (force || (activePage && activePage.component == component)) {
+                    // build base path from path in page tree
+                    var pagePath = this.getPageBasePath(activePage);
+
+                    // get pageArgs
+                    pageArgs = pageArgs || component.getPageArgs() || '';
+                    if (pageArgs) {
+                        pagePath += '/' + pageArgs;
+                    }
+
+                    var lowerCasePagePath = pagePath.toLowerCase();
+
+                    if (!history.state) {
+                        // first entry
+                        history.replaceState(pagePath, null, pagePath);
+                    }
+                    else if (history.state.toLowerCase() !== lowerCasePagePath &&
+                        this.lastAddress !== lowerCasePagePath) {
+                        // only add history entry if it's different from the last one (case-insensitively)
+                        history.pushState(pagePath, null, pagePath);
+                    }
+                    this.addedHistoryEntry = true;
+                }
+            },
+
+            arePageArgsEqual: function(args1, args2) {
+                if (args1 === null || args1 === undefined) args1 = '';
+                if (args2 === null || args2 === undefined) args2 = '';
+                return args1 === args2;
+            },
+
+            /**
+             * Recursively call `onPageDeactivate` on component and all children.
+             */
+            _callOnPageDeactivateOnComponent: function(component, newPage) {
+                var onPageDeactivateCb = component.onPageDeactivate;
+                if (onPageDeactivateCb instanceof Function) {
+                    onPageDeactivateCb(newPage);
+                }
+                else if (onPageDeactivateCb && onPageDeactivateCb.pre) {
+                    // `onPageDeactivate` is an object with optional `pre` and `post` properties
+                    onPageDeactivateCb.pre.call(component, newPage);
+                }
+
+                // recursively call `onPageDeactivate` on children
+                component.forEachPageChild(function(childComponent) {
+                    this._callOnPageDeactivateOnComponent(childComponent, newPage);
+                }.bind(this));
+
+                if (onPageDeactivateCb && onPageDeactivateCb.post) {
+                    // `onPageDeactivate` is an object with optional `pre` and `post` properties
+                    onPageDeactivateCb.post.call(component, newPage);
+                }
+            },
+
+            _onPageDeactivate: function(page, newPage) {
+                // fire event
+                this._callOnPageDeactivateOnComponent(page.component, newPage);
+
+                page.active = false;
+                if (page.navButton) {
+                    page.navButton.active = false;
+                }
+            },
+
+            /**
+             * Recursively call `onPageActivate` on component and all children.
+             */
+            _callOnPageActivateOnComponent: function(component, pageArgs) {
+                var onPageActivateCb = component.onPageActivate;
+                if (onPageActivateCb instanceof Function) {
+                    onPageActivateCb.call(component, pageArgs);
+                }
+                else if (onPageActivateCb && onPageActivateCb.pre) {
+                    // `onPageActivate` is an object with optional `pre` and `post` properties
+                    onPageActivateCb.pre.call(component, pageArgs);
+                }
+
+                // recursively call `onPageActivate` on children
+                component.forEachPageChild(function(childComponent) {
+                    this._callOnPageActivateOnComponent(childComponent, pageArgs);
+                }.bind(this));
+
+                if (onPageActivateCb && onPageActivateCb.post) {
+                    // `onPageActivate` is an object with optional `pre` and `post` properties
+                    onPageActivateCb.post.call(component, pageArgs);
+                }
+            },
+            
+            _onPageActivate: function(page, pageArgs) {
+                // set activePage
+                activePage = page;
+
+                // update title
+                var pageTitle = page.getTitle ? page.getTitle() : page.name;
+                document.title =  pageTitle + ' - ' + Instance.UIMgr.appName;
+
+                // set active button:
+                if (activeButton) {
+                    // only one active button in the main menu (for now)
+                    activeButton.active = false;
+                }
+
+                // throw new Error('went to page: ' + page.name);
+
+                page.active = true;
+                if (page.navButton) {
+                    page.navButton.active = true;
+                    activeButton = page.navButton;
+                }
+                else if (page.parentPageName) {
+                    // TODO: Make this more consistent
+                    var parentPage = pagesByPageName[page.parentPageName];
+                    parentPage.navButton.active = true;
+                    activeButton = parentPage.navButton;
+                }
+                
+                // add history entry
+                Instance.UIMgr.updateAddressBar(page.component, pageArgs, true);
+                
+                // re-compute arguments
+                pageArgs = pageArgs || page.component.getPageArgs();
+
+                this._callOnPageActivateOnComponent(page.component, pageArgs);
+            },
+                    
+            /**
+             * Deactivate current and activate new page.
+             */
+            _setActivePage: function(newPage, pageArgs, force) {
+                var This = Instance.UIMgr;
+
+                return This.ready(function() {
+                    // we need to defer setup because Angular might not be ready yet
+                    if (!force && activePage == newPage && this.arePageArgsEqual(activePage.component.getPageArgs(), pageArgs)) {
+                        // same page -> Don't do anything
+
+                        // same page -> Only update address arguments
+                        //Instance.UIMgr.updateAddressBar(newPage.component, pageArgs, true);
+                    }
+                    else {
+                        if (activePage && activePage !== newPage) {
+                            // deactivate current page
+                            var result = this._onPageDeactivate(activePage, newPage);
+                            // if (result === false) {
+                            //     // page change was cancelled
+                            //     return;
+                            // }
+                        }
+                        if (!newPage) {
+                            // nothing happens (should probably never happen)
+                            activePage = null;
+                        }
+                        else {
+                            // activate new page
+                            this._onPageActivate(newPage, pageArgs);
+                        }
+
+                        // invalid view
+                        invalidateView();
+                        console.log('page activated: ' + newPage);
+
+                        // fire event
+                        This.events.pageActivated.fire(newPage);
+                    }
+                }.bind(this));
+            },
+
+
+            // ################################################################################################################
+            // Component Events
             
             /**
              * Called after the given component has been freshly loaded to the client.
@@ -670,225 +910,8 @@ module.exports = NoGapDef.component({
                 };
 
                 if (scope) {
-                    scope.safeApply();
+                    invalidateView();
                 }
-            },
-
-            onNavButtonClick: function(pageName) {
-                this.gotoPage(pageName);
-            },
-
-            /**
-             * Display current page location in address bar (and add history entry).
-             * Does not do anything if the given component is not the active page and `force` is `false`.
-             */
-            updateAddressBar: function(component, pageArgs, force) {
-                if (force || (activePage && activePage.component == component)) {
-                    // build base path from path in page tree
-                    var pagePath = this.getPageBasePath(activePage);
-
-                    // get pageArgs
-                    pageArgs = pageArgs || (component.getPageArgs && component.getPageArgs()) || '';
-                    if (pageArgs) {
-                        pagePath += '/' + pageArgs;
-                    }
-
-                    var lowerCasePagePath = pagePath.toLowerCase();
-
-                    if (!history.state) {
-                        // first entry
-                        history.replaceState(pagePath, null, pagePath);
-                    }
-                    else if (history.state.toLowerCase() !== lowerCasePagePath &&
-                        this.lastAddress !== lowerCasePagePath) {
-                        // only add history entry if it's different from the last one (case-insensitively)
-                        history.pushState(pagePath, null, pagePath);
-                    }
-                    this.addedHistoryEntry = true;
-                }
-            },
-
-            // ################################################################################################################
-            // Events triggered directly by the server (or by client)
-
-            /**
-             * User privs changed ->
-             * Re-validate which buttons and pages to show.
-             */
-            revalidatePagePermissions: function() {
-                if (!clientInitialized) return;
-
-                // Revalidate whether user is still allowed to see the current page or buttons
-                for (var i = 0; i < pageGroups.length; ++i) {
-                    var group = pageGroups[i];
-                    for (var j = 0; j < group.pages.length; ++j) {
-                        var page = group.pages[j];
-                        if (page.navButton) {
-                            page.navButton.show = group.mayActivate();
-                        }
-                    }
-                }
-
-                // navigate to where user wants to go
-                this.gotoAddressBarAddress();
-            },
-
-
-            // ################################################################################################################
-            // Goto & UIMgr (public API)
-
-            /**
-             * We leave the current page because we are not supposed to be on it.
-             * In that case, we want to go back to the last page and remove the current page from the history.
-             * However it is not possible to rewrite browser history (yet).
-             * So we have to track everything ourselves.
-             */
-            leaveCurrentPage: function() {
-                if (!activePage) return;
-
-                // TODO: Track all history and enable deleting of entries and smarter navigation
-
-                // for now, we just settle with the fact that the page is still in the history and go back
-                //gotoPage('Home');
-                history.back();
-            },
-
-            /**
-             * Use a stupid heuristic to get component name from page name
-             */
-            getComponentNameFromPageName: function(pageName) {
-                return pageName + 'Page';
-            },
-
-            /**
-             * Recursively get full path of page in page tree.
-             */
-            getPageBasePath: function(currentPage) {
-                var parentPage = currentPage.parent;
-                var path = '/' + currentPage.name;
-                if (parentPage) {
-                    // recurse
-                    path = this.getPageBasePath(parentPage) + path;
-                }
-                return path;
-            },
-
-
-            /**
-             * Go to the state encoded in the current path of the address bar
-             */
-            gotoAddressBarAddress: function() {
-                // get path
-                //var path = window.location.href.substring(origin.length);
-                var path = window.location.pathname + window.location.search
-                     + window.location.hash;
-                if (path.length > 0) {
-                    path = path.substring(1);
-                }
-                if (path.length == 0) {
-                    // go to default page
-                    this.gotoDefaultPage();
-                }
-                else {
-                    // decompose the location's `path` and go to the page
-                    var pathObj = path.split('/');
-                    var pageName;
-                    var argsIdx = 0;
-                    for (var i = 0; i < pathObj.length; ++i) {
-                        var _pageName = pathObj[i];
-                        while (_pageName.endsWith('#')) {
-                            // sometimes, a hash steals itself into the name
-                            _pageName = _pageName.substring(0, _pageName.length-1);
-                        }
-                        var componentName = this.getComponentNameFromPageName(_pageName);
-                        if (!pageGroupsByComponentName[componentName]) {
-                            // this is not a valid page name -> Probably an argument
-                            break;
-                        }
-                        pageName = _pageName;
-                        argsIdx += pageName.length + 1;
-                    }
-
-                    // get page args
-                    var pageArgs = path.length > argsIdx ? path.substring(argsIdx) : null;
-
-                    this.gotoPage(pageName, pageArgs);
-                }
-            },
-
-            /**
-             * Fallback page when user-selection is not valid.
-             * WARNING: This code is fragile.
-             *      If there is a small error in the routing logic, this call can easily cause an infinite loop.
-             */
-            gotoDefaultPage: function(lastTriedGroup) {
-            	// go to first page of first allowed group
-            	for (var i = 0; i < pageGroups.length; ++i) {
-                    var group = pageGroups[i];
-            		if (group.mayActivate()) {
-                        if (group == lastTriedGroup) {
-                            // failed to go to this page before
-                            break;
-                        }
-            			this.gotoComponent(group.pageComponents[0]);
-                        return;
-            		}
-            	};
-
-                console.error('Could not go to default page.');
-            },
-
-            /**
-             * Go to the page of the given name.
-             */
-            gotoPage: function(pageName, pageArgs) {
-                this.gotoComponent(this.getComponentNameFromPageName(pageName), pageArgs);
-            },
-            
-            /**
-             * Prepare going to the page that is represented by the component of the given name.
-             */
-            gotoComponent: function(componentName, pageArgs) {
-                // get all components of the same group
-                var pageGroup = pageGroupsByComponentName[componentName];
-
-                // check if component is page and whether user has required access rights
-                if (!pageGroup || !pageGroup.mayActivate()) {
-                    // cannot access -> go to fallback page
-                    this.gotoDefaultPage();
-                    return;
-                }
-
-                // request the given (and all other missing) components from server
-                // we merge all allowed groups' components together
-                // This is for example for admins so they can see the `Admin` page even if they
-                // only requested the `Home` page for now.
-                var groupComponents = [];
-                pageGroups.forEach(function(pageGroup) {
-                    if (pageGroup.mayActivate()) {
-                        groupComponents.push.apply(groupComponents, pageGroup.allComponents);
-                    }
-                });
-
-                return Tools.requestClientComponents(groupComponents)
-                .then(function() {
-                    console.assert(pages.length, 
-                        'Tried to goto page `' + componentName + '` when there was no page registered.');
-
-                    //var comp = this.Instance[componentName];
-
-                    // now check if it's actually a page (component must be present for this check)
-                    if (pagesByComponentName[componentName]) {
-                        // activate it
-                        setActivePage(pagesByComponentName[componentName], pageArgs, true);
-                    }
-                    else {
-                        // fall back to default
-                        this.gotoDefaultPage(pageGroup);
-                    }
-                //}.bind(this));}.bind(this));
-                }.bind(this));
-                //}.bind(this));
             },
 
 

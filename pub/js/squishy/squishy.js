@@ -4,7 +4,7 @@
 /*jslint node: true */
 "use strict";
 
-if (typeof(squishy) !== 'undefined') throw new Error('Tried to load squishy.js more than once.');
+// if (typeof(squishy) !== 'undefined') throw new Error('Tried to load squishy.js more than once.');
  
 // create the squishy namespace
 var squishy = {};
@@ -70,6 +70,7 @@ if (!squishy.getGlobalContext().squishy) {
 
     // export squishy itself
     squishy.exportGlobal('squishy', squishy);
+    console.log('exported squishy: ' + !!GLOBAL.squishy);
 
 
     // require other squishy-related files

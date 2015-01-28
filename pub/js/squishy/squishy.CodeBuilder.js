@@ -3,7 +3,6 @@
  */
 "use strict";
 
-
 (function() {
 if (typeof(require) !== 'undefined') {
     require('./squishy.Stacktrace');
@@ -121,7 +120,7 @@ squishy.CodeBuilder = {
         // test serializing of functions
         // TODO: comment this thing out
         var funFromString = eval(completeCode);
-        squishy.assert(typeof funFromString === 'function', 'Supplied code is not a function.');
+        console.assert(typeof funFromString === 'function', 'Supplied code is not a function.');
         
         // only override `toString`, so we still get the original function
         code.toString = function() { return completeCode; };

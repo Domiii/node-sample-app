@@ -1,0 +1,327 @@
+/**
+ * All utilities required to verify and manage users.
+ */
+"use strict";
+
+var componentsRoot = '../../';
+var libRoot = componentsRoot + '../lib/';
+var SequelizeUtil = require(libRoot + 'SequelizeUtil');
+
+var NoGapDef = require('nogap').Def;
+
+
+module.exports = NoGapDef.component({
+    Base: NoGapDef.defBase(function(SharedTools, Shared, SharedContext) {
+        return {
+            Private: {
+                // Caches (static member)
+                Caches: {
+                    groups: {
+                        idProperty: 'gid',
+                        InstanceProto: {
+                            hasIcon: function() {
+                                return !!this.iconFile;
+                            },
+
+                            /**
+                             * The file name of the group's icon; without folder or extension.
+                             */
+                            getGroupIconIdentifier: function() {
+                                return 'group_icon_' + this.gid;
+                            },
+
+                            getGroupIconFileName: function() {
+                                if (!this.hasIcon()) return null;
+                                return this.iconFile;
+                            },
+
+                            /**
+                             * Gets file path of the current user's group's icon (if it has any)
+                             */
+                            getGroupIconFilePath: function() {
+                                if (!this.hasIcon()) return null;
+
+                                var uploadConfig = Shared.Group.uploads.groupIcons;
+                                var uploadFolder = uploadConfig.uploadFolder;
+                                return path.join(uploadFolder, this.getGroupIconFileName());
+                            },
+
+                            getGroupIconSrc: function() {
+                                if (!this.hasIcon()) return null;
+
+                                var uploadConfig = Shared.Group.uploads.groupIcons;
+                                var downloadPath = uploadConfig.downloadPath;
+                                return downloadPath + this.getGroupIconFileName();
+                            }
+                        },
+                        members: {
+                        }
+                    }
+                },
+            }
+        };
+    }),
+
+    Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
+        var GroupModel;
+
+        // some Node modules for handling file uploads
+        var multer,
+            path,
+            mime;
+
+        return {
+            __ctor: function () {
+            },
+
+            initModel: function() {
+                /**
+                 * User object definition.
+                 */
+                return GroupModel = sequelize.define('Group', {
+                    gid: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
+                    creatorId: {type: Sequelize.INTEGER.UNSIGNED},
+                    name: Sequelize.STRING(100),
+
+                    // extension of the group's icon file
+                    iconFile: Sequelize.STRING(100),
+                },{
+                    freezeTableName: true,
+                    tableName: 'bjt_group',
+                    classMethods: {
+                        onBeforeSync: function(models) {
+                        },
+
+                        onAfterSync: function(models) {
+                            return Promise.join(
+                                // create indices
+                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['gid'], { indexOptions: 'UNIQUE'}),
+                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['creatorId']),
+                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['name'], { indexOptions: 'UNIQUE'})
+                            );
+                        }
+                    }
+                });
+            },
+                    
+            /**
+             * 
+             */
+            initHost: function(expressApp, cfg) {
+                if (Shared.FileUpload) {
+                    // get some modules we will need for the server
+                    multer = require('multer');     // multipart file handling
+                    path = require('path');
+                    mime = require('mime');
+
+                    // setup group icon uploads
+                    this.groupIconUploadOptions = {
+                        name: 'groupIcons',
+                        component: this,
+                        limits: null,
+
+                        /**
+                         * @param filenameWithoutExtension
+                         * @return Target file name, without extension
+                         */
+                        rename: function (fieldname, filenameWithoutExtension) {
+                            // get group icon file name
+                            var user = this.Instance.User.currentUser;
+                            return user && user.group && user.group.getGroupIconIdentifier();
+                        },
+
+                        onFileUploadStart: function (fileInfo) {
+                            // check file type
+                            var fileType = mime.lookup(fileInfo.name);
+                            if (!fileType.startsWith('image/')) {
+                                // only images are allowed
+                                return false;
+                            }
+
+                            // Delete existing file if it has a different name
+                            var user = this.Instance.User.currentUser;
+                            var group = user && user.group;
+                            var newFileName = fileInfo.name;
+                            var oldFileName = group && group.getGroupIconFileName();
+
+                            if (oldFileName && oldFileName !== newFileName) {
+                                var iconUploads = Shared.Group.uploads.groupIcons;
+
+                                // different file name -> Delete old one!
+                                return iconUploads.deleteFile(oldFileName)
+                                .bind(this)
+                                .catch(function(err) {
+                                    // should not matter too much
+                                    this.Instance.Group.Tools.logWarn('Unable to delete Group icon file `' + oldFileName + '`: ' + err.stack);
+                                });
+                            }
+
+                            //console.log('Client is uploading file:' + fileInfo.originalname + '  ...');
+                        },
+
+                        onFileUploadComplete: function (fileInfo) {
+                            console.log('received file: ' + fileInfo.name);
+                            return this.Instance.Group.updateGroupIcon(fileInfo.name);
+                        }
+                    };
+
+                    Shared.FileUpload.registerUploadHandler(this.groupIconUploadOptions);
+                }
+            },
+
+            /**
+             * Create new group with given name and creator.
+             */
+            createGroup: function(groupName, creatorId) {
+                var queryData = {name: groupName, creatorId: creatorId};
+                return GroupModel.create(queryData)
+                .then(SequelizeUtil.getValuesFromRows);
+            },
+
+            /**
+             * Delete group of given gid, if it has no more members.
+             * TODO: Check that group did not contribute anything yet!
+             */
+            deleteIfEmpty: function(gid) {
+                // check if any user is still in this group
+                var queryData = {
+                    where: ['gid = ?', gid]
+                };
+                return Shared.User.Model.count(queryData)
+                .then(function(count) {
+                    if (count > 0) {
+                        return Promise.reject('error.invalid.request');
+                    }
+                    else {
+                        // delete group
+                        return GroupModel.destroy({where: {gid: gid }})
+                        .then(function(affectedRows) {
+                            // done!
+                            
+                        });
+                    }
+                });
+            },
+
+            Private: {
+                __ctor: function () {
+                    this.events = {
+                    };
+                },
+                
+                onClientBootstrap: function() {
+                    // query & send all groups to client
+                    this.groups.sendObjectsChangeFromQuery();
+                },
+
+                createAndJoinGroup: function(groupName) {
+                    var creator = this.Instance.User.currentUser;
+                    console.assert(creator, 'Called `createAndJoinGroup` while user was not logged in.');
+
+                    return this.Shared.createGroup(groupName, creator.uid)
+                    .bind(this)
+                    .then(this.setCurrentUserGroup);
+                },
+
+                leaveGroup: function(alsoDelete) {
+                    var user = this.Instance.User.currentUser;
+                    var gid = user.gid;
+                    console.assert(user, 'Called `leaveGroup` while user was not logged in.');
+
+                    return this.setCurrentUserGroup(null)
+                    .bind(this)
+                    .then(function(group) {
+                        if (alsoDelete && gid) {
+                            // also try to delete this group
+                            return this.Shared.deleteIfEmpty(gid);
+                        }
+                    });
+                },
+
+                /**
+                 * Change currentUser's group.
+                 * @param groupOrGid Either group object, group gid, or null.
+                 */
+                setCurrentUserGroup: function(groupOrGid) {
+                    // update group in DB
+                    var instance = this.Instance;
+
+                    if (!groupOrGid || (groupOrGid && groupOrGid.gid)) {
+                        // changed group, and `groupOrGid` contains all group data
+                        return this.Instance.User.setCurrentUserGroup(groupOrGid);
+                    }
+                    else {
+                        // changed group, but we only have gid -> look up group
+                        return GroupModel.find(groupOrGid)
+                        .then(SequelizeUtil.getValuesFromRows)
+                        .then(this.Instance.User.setCurrentUserGroup.bind(this.Instance.User));
+                    }
+                },
+
+                updateGroupIcon: function(fileName) {
+                    var user = this.Instance.User.currentUser;
+                    var group = user && user.group;
+
+                    if (!group) return Promise.reject('error.invalid.request');
+
+                    // update icon info in DB
+                    group.iconFile = fileName;
+                    group.updatedAt = new Date();
+                    return GroupModel.update({ iconFile: fileName }, { where: { gid: group.gid } })
+                    .bind(this)
+                    .then(function() {
+                        // update succeeded -> send back to client
+                        console.log('applying change');
+                        this.Instance.Group.groups.applyChange(group);
+                    });
+                }
+            },
+
+            Public: {
+                /**
+                 * Delete icon file and update group in DB.
+                 */
+                deleteIconFile: function() {
+                    // TODO: Check for group alter permissions
+                    if (!this.Shared.uploads) return;
+
+                    var uploadConfig = this.Shared.uploads.groupIcons;
+                    var user = this.Instance.User.currentUser;
+                    var group = user && user.group;
+                    if (!group || !group.hasIcon()) {
+                        return Promise.reject('error.invalid.request');
+                    }
+
+                    var filePath = group.getGroupIconFileName();
+                    return uploadConfig.deleteFile(filePath)
+                    .bind(this)
+                    .catch(function(err) {
+                        // should not matter too much
+                        this.Instance.Group.Tools.logWarn('Unable to delete Group icon file `' + filePath + '`: ' + err.stack);
+                    })
+                    .then(function() {
+                        // deleted -> Update DB
+                        return this.updateGroupIcon(null);
+                    });
+                }
+            },
+        };
+    }),
+
+    Client: NoGapDef.defClient(function(Tools, Instance, Context) {
+        return {
+            __ctor: function () {
+            },
+
+            events: {
+            },
+
+
+            // ################################################################################################
+            // Handle server responses:
+
+            Public: {
+            }
+        };
+    })
+});

@@ -68,7 +68,21 @@ module.exports = NoGapDef.component({
                 // Caches (static member)
                 Caches: {
                     users: {
-                        idProperty: 'uid'
+                        idProperty: 'uid',
+                        InstanceProto: {
+                            getGroup: function() {
+                                return this.gid && 
+                                    (this.group ||
+                                    this.Instance.Group.groups.getObjectNow(this.gid));
+                            },
+                            initialize: function(users) {
+                                // add Instance object to new User instance
+                                Object.defineProperty(this, 'Instance', {
+                                    enumerable: false,
+                                    value: users.Instance
+                                });
+                            }
+                        }
                     }
                 },
 
@@ -97,11 +111,10 @@ module.exports = NoGapDef.component({
 
         return {
             __ctor: function () {
-                // all Associations to be included when fetching a user object from DB
-                this.userAssociations = [];
             },
 
             initModel: function() {
+                var This = this;
                 UserRole = this.UserRole;
 
                 /**
@@ -122,9 +135,24 @@ module.exports = NoGapDef.component({
                     locale: Sequelize.STRING(20),
                     lastIp: Sequelize.STRING(100),
                 },{
+                    freezeTableName: true,
+                    tableName: 'bjt_user',
                     classMethods: {
                         onBeforeSync: function(models) {
-                            // setup foreign key Associations here
+                            // setup foreign key Association between user and group
+                            models.User.belongsTo(models.Group,
+                                { foreignKey: 'gid', as: 'group', foreignKeyConstraint: true });
+                            models.Group.hasMany(models.User,
+                                { foreignKey: 'gid', as: 'members', constraints: false });
+
+                            // all Associations to be included when fetching a user object from DB
+                            This.userAssociations = [
+                                // include group
+                                {
+                                    model: models.Group,
+                                    as: 'group'
+                                }
+                            ];
                         },
 
                         onAfterSync: function(models) {
@@ -143,23 +171,13 @@ module.exports = NoGapDef.component({
                 });
             },
 
-            /**
-             * Change user values of any user.
-             */
-            updateUser: function(uid, values) {
-                // TODO: In order for this to work properly, 
-                //      we also have to update the corresponding instance object
-                //      and notify all connected clients.
-                throw new Error('NOT IMPLEMENTED YET');
-            },
-
             Private: {
                 Caches: {
                     users: {
                         members: {
                             compileReadObjectsQuery: function(queryInput) {
                                 var queryData = {
-                                    //include: Shared.User.userAssociations
+                                    include: Shared.User.userAssociations
                                 };
                                 if (queryInput && queryInput.gid) {
                                     // queryInput may contain gid, if given
@@ -254,13 +272,19 @@ module.exports = NoGapDef.component({
                 },
 
                 /**
-                 * Query DB to validate user-provided credentials.
+                 *
                  */
                 tryLogin: function(authData, preferredLocale) {
-                    // TODO: General login credentials
-
-                    // query user from DB
+                    // TODO: Real login credentials check
                     var userName = authData.userName;
+                    return this.loginAs(userName, preferredLocale);
+                },
+
+                /**
+                 * Query DB to validate user-provided credentials.
+                 */
+                loginAs: function(userName, preferredLocale) {
+                    // query user from DB
                     var queryData = {name: userName};
                     return this.findUser(queryData)
                     .bind(this)
@@ -307,16 +331,17 @@ module.exports = NoGapDef.component({
                 createAndLogin: function(userName, preferredLocale) {
                     if (!preferredLocale || !Shared.Localizer.Default.localeExists(preferredLocale)) {
                         // fall back to system default locale
-                        preferredLocale = Instance.BJTConfig.getValue('defaultLocale');
+                        preferredLocale = Shared.AppConfig.getValue('defaultLocale') || 'en';
                     }
                     var queryData = {
                         name: userName, 
                         role: UserRole.Admin, 
                         displayRole: UserRole.Admin,
 
-                        //locale: Shared.BJTConfig.getValue('defaultLocale') || 'en'
+                        //locale: Shared.AppConfig.getValue('defaultLocale') || 'en'
                         locale: preferredLocale
                     };
+
                     return UserModel.create(queryData)
                     .then(SequelizeUtil.getValuesFromRows)
                     .bind(this)
@@ -353,7 +378,7 @@ module.exports = NoGapDef.component({
                         .then(function(user) {
                             if (!user) {
                                 // could not login -> Invalid session (or rather, User could not be found)
-                                console.warn('Unable to login user from session -- invalid session ID');
+                                console.warn('Unable to login user from session -- invalid or expired session');
                                 delete sess.uid;    // delete uid from session
 
                                 return loginAsGuest.call(this);
@@ -384,7 +409,7 @@ module.exports = NoGapDef.component({
                 // Misc getters & setters
 
                 /**
-                 * TODO: Use cache instead
+                 * TODO: Go through cache instead
                  */
                 findUser: function(queryData) {
                     var query = {
@@ -394,8 +419,19 @@ module.exports = NoGapDef.component({
 
                     // query user from DB
                     return UserModel.find(query)
-                    .then(SequelizeUtil.getValuesFromRows);
+                    .bind(this)
+                    .then(function(_user) {
+                        var user = SequelizeUtil.getValuesFromRows(_user, query.include);
+                        // TODO: Also wrap user object
+
+                        if (user && user.group) {
+                            // wrap Group object
+                            user.group = this.Instance.Group.groups.wrapObject(user.group);
+                        }
+                        return user;
+                    });
                 },
+
 
                 /**
                  * Change current user values.
@@ -424,6 +460,7 @@ module.exports = NoGapDef.component({
                     });
                 },
 
+
                 /**
                  * This method is called when starting and upon successful login.
                  */
@@ -443,6 +480,7 @@ module.exports = NoGapDef.component({
                     this.client.setCurrentUser(uid);
                 },
 
+
                 /**
                  * Change currentUser's group.
                  */
@@ -452,7 +490,7 @@ module.exports = NoGapDef.component({
                         return Promise.reject('error.internal');
                     }
 
-                    var gid = (group && group.gid) || 0;
+                    var gid = (group && group.gid) || null;
                     var values = {gid: gid};
                     var selector = { where: {uid: this.currentUser.uid} };
                     return Shared.User.Model.update(values, selector)
@@ -462,6 +500,7 @@ module.exports = NoGapDef.component({
 
                         // update current user object properties
                         this.currentUser.gid = gid;
+                        this.currentUser.group = this.Instance.Group.groups.wrapObject(group)
 
                         // send updated user object to client and caller
                         this.users.applyChange(this.currentUser);
@@ -498,12 +537,12 @@ module.exports = NoGapDef.component({
 
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
         var UserRole;
-        var thisInstance;
+        var ThisInstance;
 
         return {
             __ctor: function () {
                 UserRole = this.UserRole;
-                thisInstance = this;
+                ThisInstance = this;
             },
 
             initClient: function() {
@@ -560,12 +599,12 @@ module.exports = NoGapDef.component({
             cacheEventHandlers: {
                 users: {
                     updated: function(newValues) {
-                        if (thisInstance.currentUser) {
+                        if (ThisInstance.currentUser) {
                             // check if currentUser was changed
                             for (var i = 0; i < newValues.length; ++i) {
                                 var userDelta = newValues[i];
-                                if (userDelta.uid == thisInstance.currentUser.uid) {
-                                    thisInstance.onCurrentUserChanged();
+                                if (userDelta.uid == ThisInstance.currentUser.uid) {
+                                    ThisInstance.onCurrentUserChanged();
                                 }
                             };
                         }

@@ -35,7 +35,7 @@ module.exports = NoGapDef.component({
                  */
                 this.defaultLocale = 'en';
 
-                this.locale = cfg.defaultLang || 'en';
+                this.locale = cfg.defaultLocale || 'en';
             },{ 
                 setLocale: function(locale) {
                     this.locale = locale;
@@ -265,12 +265,10 @@ module.exports = NoGapDef.component({
              * according to the given configuration.
              */
             createLocalizer: function(cfg) {
-                console.assert(cfg.langDir);
+                console.assert(cfg.folder, 'Localizer configuration requires (but did not have) `folder` parameter');
 
                 // read translations from file
-                var cfg = {
-                    dict: readLang(cfg.langDir)
-                };
+                cfg.dict = readLang(cfg.folder);
 
                 // create localizer object
                 var localizer = new this.LocalizerClass(cfg);

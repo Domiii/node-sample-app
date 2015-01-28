@@ -4,6 +4,15 @@ var config = {
     // we are in development mode
     'dev': 1,
 
+    'title': 'Awesome Presentations!',
+
+    /**
+     * Whether to open the command line
+     */
+    'console': 1,
+    
+    'defaultLocale': 'en',
+
     // folder containing files, accessible by clients
     'publicFolder': 'pub',
 
@@ -22,7 +31,7 @@ var config = {
         'user'     : 'root',
         'password' : 'r00t',
         'port'     : '3306',
-        'database' : 'bjt_test',
+        'database' : 'my_db',
         'reconnectDelay':   '5'
     },
 
@@ -78,12 +87,14 @@ var config = {
             // core components
             'models/core/AppConfig',
             'models/core/User',
+            'models/core/Group',
 
             // misc utilities
             'util/MiscUtil',
             'util/Localizer',
             'util/Log',
             'util/ValidationUtil',
+            'util/SimpleBooleanExpressions',
 
             // core UI components:
             'ui/UIMgr',
@@ -94,12 +105,14 @@ var config = {
 
             // user pages:
             'ui/home/HomePage',
+            'ui/account/AccountPage',
 
             // video pages:
             'ui/video_page/VideoPage',
 
             // contact pages:
             'ui/contact_us/ContactPage'
+
 
         ]
     },

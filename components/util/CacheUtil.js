@@ -691,6 +691,7 @@ module.exports = NoGapDef.component({
                      * Can be overwritten for customized post-query processing.
                      */
                     onReadObject: function(object) {
+                        return object;
                     },
 
                     /**
@@ -698,6 +699,7 @@ module.exports = NoGapDef.component({
                      * Can be overwritten for customized post-query processing.
                      */
                     onReadObjects: function(objects) {
+                        return objects;
                     },
 
 
@@ -821,7 +823,11 @@ module.exports = NoGapDef.component({
                      * Send object delta to Client.
                      */
                     applyChange: function(object) {
-                        this.Instance.CacheUtil.client.applyChanges(this.name, [object]);
+                        this.applyChanges(object && [object]);
+
+                        return Promise.resolve(object)
+                        .bind(this)
+                        .then(this.wrapObject);
                     },
 
                     /**
@@ -829,6 +835,7 @@ module.exports = NoGapDef.component({
                      */
                     applyChanges: function(objects) {
                         this.Instance.CacheUtil.client.applyChanges(this.name, objects);
+                        // TODO: also wrap it
                     },
 
                     /**
@@ -840,7 +847,7 @@ module.exports = NoGapDef.component({
                         return this.readObject(queryInput)
                         .then(function(object) {
                             // send to client
-
+                            this.Instance.CacheUtil.client.applyChanges(this.name, object && [object]);
                         });
                     },
 
@@ -910,7 +917,7 @@ module.exports = NoGapDef.component({
                             });
                         })
                         .then(this.wrapObject)
-                        .tap(this.onReadObject);
+                        .then(this.onReadObject);
                     },
 
                     /**
@@ -936,7 +943,7 @@ module.exports = NoGapDef.component({
                             });
                         })
                         .map(this.wrapObject)
-                        .tap(this.onReadObjects);
+                        .then(this.onReadObjects);
                     },
 
 
@@ -1026,7 +1033,7 @@ module.exports = NoGapDef.component({
                  * The min role of users to access data associated of any cache.
                  */
                 getMinRole: function() {
-                    return Shared.BJTConfig.getValue('minAccessRole');
+                    return Shared.AppConfig.getValue('minAccessRole');
                 }
             },
             
@@ -1198,76 +1205,82 @@ module.exports = NoGapDef.component({
                         // keep track only of changed objects
                         var newData = [];
 
-                        // 1. remove all non-updates
-                        for (var iObj = 0; iObj < data.length; ++iObj) {
-                            var newValues = data[iObj];
-                            var id = idGetter.call(this, newValues);
+                        if (data) {
+                            // 1. remove all non-updates
+                            for (var iObj = 0; iObj < data.length; ++iObj) {
+                                var newValues = data[iObj];
+                                var id = idGetter.call(this, newValues);
 
-                            console.assert(id, 'Invalid object had no but NEEDS an id in `Cache._applyChanges` ' +
-                                'of cache `' + this.name + '` - ' +
-                                'That happens either because the object does not have an id, ' +
-                                'or the cache declaration\'s `idGetter` or `idProperty` are ill-defined.');
+                                console.assert(id, 'Invalid object had no but NEEDS an id in `Cache._applyChanges` ' +
+                                    'of cache `' + this.name + '` - ' +
+                                    'That happens either because the object does not have an id, ' +
+                                    'or the cache declaration\'s `idGetter` or `idProperty` are ill-defined.');
 
-                            var obj = map[id];
-                            if (!obj) {
-                                // new object is about to be added
+                                var obj = map[id];
+                                if (!obj) {
+                                    // new object is about to be added
 
-                                // notify
-                                var obj = this.wrapObject(newValues);
-                                newData.push(obj);
-                            }
-                            else {
-                                // object was cached previously:
-                                // check if it has changed
-                                for (var propName in newValues) {
-                                    var newValue = newValues[propName];
-                                    var oldValue = obj[propName];
-                                    if (!angular.equals(newValue, oldValue)) {
-                                        // this object has changed
-                                        newData.push(newValues);
-                                        break;
+                                    // notify
+                                    var obj = this.wrapObject(newValues);
+                                    newData.push(obj);
+                                }
+                                else {
+                                    // object was cached previously:
+                                    // check if it has changed
+                                    for (var propName in newValues) {
+                                        var newValue = newValues[propName];
+                                        var oldValue = obj[propName];
+                                        if (!angular.equals(newValue, oldValue)) {
+                                            // this object has changed
+                                            newData.push(newValues);
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                        };
+                            };
+                        }
 
                         // fire "updating" event
                         this.events.updating.fire(newData, queryInput, this);
 
-                        // 2. apply all updates only to changed objects
-                        for (var iObj = 0; iObj < newData.length; ++iObj) {
-                            var newValues = newData[iObj];
-                            var id = idGetter.call(this, newValues);
+                        if (data) {
+                            // 2. apply all updates only to changed objects
+                            for (var iObj = 0; iObj < newData.length; ++iObj) {
+                                var newValues = newData[iObj];
+                                var id = idGetter.call(this, newValues);
 
-                            var obj = map[id];
-                            if (!obj) {
-                                // object was not cached previously:
-                                obj = newValues;
+                                var obj = map[id];
+                                if (!obj) {
+                                    // object was not cached previously:
+                                    obj = newValues;
 
-                                // add new object to cache
-                                list.push(obj);
-                                map[id] = obj;
+                                    // add new object to cache
+                                    list.push(obj);
+                                    map[id] = obj;
 
-                                // add to indices
-                                if (this.indices) {
-                                    this.indices._addInstance(obj);
+                                    // add to indices
+                                    if (this.indices) {
+                                        this.indices._addInstance(obj);
+                                    }
+                                    
+
+                                    // fire client-side only event
+                                    this.onAddedObject(obj);
                                 }
-                                
+                                else {
+                                    // object was cached previously:
+                                    // shallow-copy new properties
+                                    for (var propName in newValues) {
+                                        obj[propName] = newValues[propName];
+                                    }
 
-                                // fire client-side only event
-                                this.onAddedObject(obj);
-                            }
-                            else {
-                                // object was cached previously:
-                                // shallow-copy new properties
-                                for (var propName in newValues) {
-                                    obj[propName] = newValues[propName];
+                                    // override new object with reference to old one
+                                    newData[iObj] = obj;
                                 }
+                            };
+                        }
 
-                                // override new object with reference to old one
-                                newData[iObj] = obj;
-                            }
-                        };
+                        // count changes applied to cache
                         ++this.nUpdates;
 
                         //console.log('Updated cache: ' + this.name);
@@ -1397,9 +1410,7 @@ module.exports = NoGapDef.component({
                         return this.Instance.CacheUtil.host.fetchObjects(this.name, queryInput)
                         .bind(this)
                         .then(function(objects) {
-                            if (objects) {
-                                return this._applyChanges(objects, queryInput);
-                            }
+                            return this._applyChanges(objects, queryInput);
                         })
                         .catch(function(err) {
                             err = err || ['cache.error.objects.notFound', queryInput];

@@ -57,7 +57,9 @@ module.exports = NoGapDef.component({
                 }]);
 
                 // register page
-                Instance.UIMgr.addPage(this, 'Video', this.assets.template, 'fa fa-video-camera');
+                Instance.UIMgr.registerPage(this, 'Video', this.assets.template, {
+                    cssClasses: 'fa fa-video-camera'
+                });
             },
             
             /**
