@@ -106,6 +106,7 @@ var config = {
             // user pages:
             'ui/home/HomePage',
             'ui/account/AccountPage',
+            'ui/video/VideoPage',
         ]
     },
 };
