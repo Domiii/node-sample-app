@@ -391,3 +391,14 @@ hr {
   padding-right: .3em;
   line-height: 1.4em;
 }
+
+/* Youtube API */
+#player {
+  display: block;
+  width: 640px;
+  height: 390px;
+  margin: 0 auto;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border: 0;
+}
