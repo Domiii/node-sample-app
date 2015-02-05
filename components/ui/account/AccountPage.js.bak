@@ -141,7 +141,7 @@ module.exports = NoGapDef.component({
                             $scope.busyLocale = false;
                         })
                         .then(function() {
-                            $scope.$root.$apply();
+                            $scope.safeApply();
                         })
                         .catch($scope.handleError.bind($scope));
                     };
