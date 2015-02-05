@@ -40,6 +40,8 @@
     "page.Account": "Account",
     "page.Help": "Help",
     "page.Settings": "Settings",
+    "page.Contact": "Contact Us",
+    "page.Video": "Video",
     
     "account.downgradedPermissions": "You have downgraded your access permissions. Click this message to restore them.",
     "account.yourAccount": "Your Account",

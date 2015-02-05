@@ -106,6 +106,14 @@ var config = {
             // user pages:
             'ui/home/HomePage',
             'ui/account/AccountPage',
+
+            // video pages:
+            'ui/video_page/VideoPage',
+
+            // contact pages:
+            'ui/contact_us/ContactPage'
+
+
         ]
     },
 };
