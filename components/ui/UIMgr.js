@@ -48,6 +48,7 @@ module.exports = NoGapDef.component({
 
     
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
+        var ThisComponent;
 
         // ####################################################################################################################
         // misc variables
@@ -113,6 +114,8 @@ module.exports = NoGapDef.component({
             // UIMgr initialization
 
             __ctor: function() {
+                ThisComponent = this;
+
                 // create events
                 this.events = {
                     pageActivated: squishy.createEvent(this)
@@ -410,57 +413,63 @@ module.exports = NoGapDef.component({
 
                 // handle button
                 if (buttonData) {
-                    /**
-                     * Default values for nav buttons
-                     */
-                    var buttonDefaults = {
-                        page: page,
-                        show: true,
-
-                        right: false,
-
-                        getText: function() {
-                            return this.text !== undefined ? this.text :
-                                Instance.Localizer.Default.lookUp('page.' + pageName);
-                        },
-
-                        //tabindex: navButtons.length+1,
-                        onClick: function() {
-                            This.gotoPage(this.page.name);
-                        },
-
-                        // urgent marker
-                        urgentMarker: false,
-                        setUrgentMarker: function(enabled) {
-                            this.urgentMarker = enabled;
-
-                            // refresh menu
-                            //invalidateMenuView();
-                            invalidateView();
-                        },
-
-                        // badge value
-                        badgeValue: 0,
-                    };
-
-                    // merge defaults into buttonData
-                    var button = squishy.mergeWithoutOverride(buttonData, buttonDefaults);
-
-                    // add button template if any
-                    if (button.template) {
-                        button.templateName = button.templateName || ('nav/' + pageName);
-                        this.addTemplate(button.templateName, button.template);
-                    }
-
-                    // store button
-                    page.navButton = button;
-
-                    var buttons = button.right ? navButtons.right : navButtons.left;
-                    buttons.push(button);
+                    // create button
+                    page.navButton = this.registerNavButton(buttonData, page);
                 }
 
                 // add page template so it can be rendered
                 this.addTemplate(page.templateName, content);
+            },
+
+            registerNavButton: function(buttonData, page) {
+                /**
+                 * Default values for nav buttons
+                 */
+                var buttonDefaults = {
+                    page: page,
+                    show: true,
+
+                    right: false,
+
+                    getText: function() {
+                        return (this.text !== undefined || !page) ? this.text :
+                            Instance.Localizer.Default.lookUp('page.' + page.name);
+                    },
+
+                    //tabindex: navButtons.length+1,
+                    onClick: function() {
+                        if (this.page) {
+                            ThisComponent.gotoPage(this.page.name);
+                        }
+                    },
+
+                    // urgent marker
+                    urgentMarker: false,
+                    setUrgentMarker: function(enabled) {
+                        this.urgentMarker = enabled;
+
+                        // refresh menu
+                        //invalidateMenuView();
+                        invalidateView();
+                    },
+
+                    // badge value
+                    badgeValue: 0,
+                };
+
+                // merge defaults into buttonData
+                var button = squishy.mergeWithoutOverride(buttonData, buttonDefaults);
+
+                // add button template if any
+                if (button.template) {
+                    button.templateName = button.templateName || (!!page && ('nav/' + page.name));
+                    this.addTemplate(button.templateName, button.template);
+                }
+
+                var buttons = button.right ? navButtons.right : navButtons.left;
+                buttons.push(button);
+
+                return button;
             },
 
 
