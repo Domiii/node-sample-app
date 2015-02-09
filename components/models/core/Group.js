@@ -3,10 +3,6 @@
  */
 "use strict";
 
-var componentsRoot = '../../';
-var libRoot = componentsRoot + '../lib/';
-var SequelizeUtil = require(libRoot + 'SequelizeUtil');
-
 var NoGapDef = require('nogap').Def;
 
 
@@ -43,7 +39,7 @@ module.exports = NoGapDef.component({
 
                                 var uploadConfig = Shared.Group.uploads.groupIcons;
                                 var uploadFolder = uploadConfig.uploadFolder;
-                                return path.join(uploadFolder, this.getGroupIconFileName());
+                                return uploadFolder + this.getGroupIconFileName();
                             },
 
                             getGroupIconSrc: function() {
@@ -65,43 +61,23 @@ module.exports = NoGapDef.component({
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
         var GroupModel;
 
+        var appRoot = '../../../';
+        var libRoot = appRoot + 'lib/';
+
+        // SequelizeUtil
+        var SequelizeUtil;
+
         // some Node modules for handling file uploads
         var multer,
             path,
             mime;
 
+        var Identicon,
+            SVGUtil;
+
         return {
             __ctor: function () {
-            },
-
-            initModel: function() {
-                /**
-                 * User object definition.
-                 */
-                return GroupModel = sequelize.define('Group', {
-                    gid: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
-                    creatorId: {type: Sequelize.INTEGER.UNSIGNED},
-                    name: Sequelize.STRING(100),
-
-                    // extension of the group's icon file
-                    iconFile: Sequelize.STRING(100),
-                },{
-                    freezeTableName: true,
-                    tableName: 'bjt_group',
-                    classMethods: {
-                        onBeforeSync: function(models) {
-                        },
-
-                        onAfterSync: function(models) {
-                            return Promise.join(
-                                // create indices
-                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['gid'], { indexOptions: 'UNIQUE'}),
-                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['creatorId']),
-                                SequelizeUtil.createIndexIfNotExists('bjt_group', ['name'], { indexOptions: 'UNIQUE'})
-                            );
-                        }
-                    }
-                });
+                SequelizeUtil = require(libRoot + 'SequelizeUtil');
             },
                     
             /**
@@ -113,6 +89,9 @@ module.exports = NoGapDef.component({
                     multer = require('multer');     // multipart file handling
                     path = require('path');
                     mime = require('mime');
+
+                    Identicon = require(libRoot + 'svg/Identicon');
+                    SVGUtil = require(libRoot + 'svg/SVGUtil');
 
                     // setup group icon uploads
                     this.groupIconUploadOptions = {
@@ -169,13 +148,29 @@ module.exports = NoGapDef.component({
                 }
             },
 
-            /**
-             * Create new group with given name and creator.
-             */
-            createGroup: function(groupName, creatorId) {
-                var queryData = {name: groupName, creatorId: creatorId};
-                return GroupModel.create(queryData)
-                .then(SequelizeUtil.getValuesFromRows);
+            initModel: function() {
+                return GroupModel = sequelize.define('Group', {
+                    gid: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
+                    creatorId: {type: Sequelize.INTEGER.UNSIGNED},
+                    name: Sequelize.STRING(100),
+
+                    // extension of the group's icon file
+                    iconFile: Sequelize.STRING(100),
+                },{
+                    classMethods: {
+                        onBeforeSync: function(models) {
+                        },
+
+                        onAfterSync: function(models) {
+                            return Promise.join(
+                                // create indices
+                                SequelizeUtil.createIndexIfNotExists(this.tableName, ['gid'], { indexOptions: 'UNIQUE'}),
+                                SequelizeUtil.createIndexIfNotExists(this.tableName, ['creatorId']),
+                                SequelizeUtil.createIndexIfNotExists(this.tableName, ['name'], { indexOptions: 'UNIQUE'})
+                            );
+                        }
+                    }
+                });
             },
 
             /**
@@ -211,14 +206,57 @@ module.exports = NoGapDef.component({
                 
                 onClientBootstrap: function() {
                     // query & send all groups to client
-                    this.groups.sendObjectsChangeFromQuery();
+                    return this.groups.applyChangesFromQuery();
+                },
+
+                /**
+                 * Create new group with given name and creator.
+                 */
+                createGroup: function(groupName, creatorId) {
+                    var newGroupData = {
+                        name: groupName, 
+                        creatorId: creatorId
+                    };
+
+                    // insert Group in DB
+                    return this.groups.createObject(newGroupData)
+                    .then(function(group) {
+                        // set group icon file name
+                        group.iconFile = group.getGroupIconIdentifier() + '.svg';
+
+                        // generate random Group identicon (width = 5)
+                        return Identicon.generate(5)
+
+                        // write to file
+                        .then(function(svg) {
+                            // set group icon path
+                            var fpath = group.getGroupIconFilePath();
+
+                            // console.log('writing Group identicon file: ' + fpath);
+
+                            return SVGUtil.writeSvg(fpath, svg);
+                        })
+
+                        // update icon path in DB
+                        .then(function() {
+                            return GroupModel.update(
+                                { iconFile: group.iconFile }, 
+                                { where: { gid: group.gid } }
+                            );
+                        })
+
+                        .then(function() {
+                            // finally return new Group object
+                            return group;
+                        });
+                    });
                 },
 
                 createAndJoinGroup: function(groupName) {
                     var creator = this.Instance.User.currentUser;
                     console.assert(creator, 'Called `createAndJoinGroup` while user was not logged in.');
 
-                    return this.Shared.createGroup(groupName, creator.uid)
+                    return this.createGroup(groupName, creator.uid)
                     .bind(this)
                     .then(this.setCurrentUserGroup);
                 },
@@ -248,12 +286,13 @@ module.exports = NoGapDef.component({
 
                     if (!groupOrGid || (groupOrGid && groupOrGid.gid)) {
                         // changed group, and `groupOrGid` contains all group data
-                        return this.Instance.User.setCurrentUserGroup(groupOrGid);
+                        var group = groupOrGid;
+                        return this.Instance.User.setCurrentUserGroup(group);
                     }
                     else {
                         // changed group, but we only have gid -> look up group
-                        return GroupModel.find(groupOrGid)
-                        .then(SequelizeUtil.getValuesFromRows)
+                        var gid = groupOrGid;
+                        return this.groups.getObject(gid)
                         .then(this.Instance.User.setCurrentUserGroup.bind(this.Instance.User));
                     }
                 },

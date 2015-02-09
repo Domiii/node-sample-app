@@ -29,7 +29,7 @@ module.exports = NoGapDef.component({
                 fieldNameSize: 100,
                 files: 1,
                 fields: 3,
-                fileSize: 1 * 1024 * 1024,      // 1 MB
+                fileSize: 256 * 1024,      // 256 kb
             },
 
             getUploadConfig: function(name) {
@@ -130,13 +130,10 @@ module.exports = NoGapDef.component({
 
                 // start listening for client Upload requests
                 SharedTools.ExpressRouters.before.post(uploadPath + '*', function (req, res, next) {
-                    console.assert(req.Instance, 'Internal error: req.Instance not defined');
                     console.assert(req.runInContext, 'Internal error: req.runInContext not defined');
 
-                    var Instance = req.Instance;
-
                     // Our best shot at ruling out race conditions
-                    req.runInContext(function() {
+                    req.runInContext(function(Instance) {
                         var user = Instance.User.currentUser;
                         if (!Instance.User.isStudent() || !user.gid) {
                             // user must be logged in and part of a group

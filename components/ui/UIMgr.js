@@ -72,6 +72,12 @@ module.exports = NoGapDef.component({
         var pageGroups = [];
         var pageGroupsByComponentName = {};
 
+        // non-page UI elements
+        var uiElementComponents = [];
+
+        // fixed (in-viewport floating) elements
+        var fixedElements = [];
+
         // misc vars
         var templateCache;
         var clientInitialized;
@@ -91,14 +97,14 @@ module.exports = NoGapDef.component({
          * @see http://stackoverflow.com/a/23769600/2228771
          */
         var invalidateView = function() {
-            scope.safeApply();
+            scope.safeDigest();
         };
 
         /**
          * Re-render menu.
          */
         var invalidateMenuView = function() {
-            menuScope.safeApply();
+            menuScope.safeDigest();
         };
 
         return {
@@ -130,6 +136,19 @@ module.exports = NoGapDef.component({
                     };
                 });
             },
+
+            /**
+             *
+             */
+            _onInit: function() {
+                // update current page view in regular intervals
+                var updateDelayMillis = 60 * 1000; // every minute
+                this.pageUpdateTimer = setInterval(function() {
+                    if (activePage) {
+                        activePage.scope.safeDigest();
+                    }
+                }, updateDelayMillis);
+            },
             
             /**
              * This is called by the outside to kickstart this whole thing.
@@ -140,14 +159,6 @@ module.exports = NoGapDef.component({
 
                 app = _app;
                 this.appName = appName;
-
-                /**
-                 * @see http://stackoverflow.com/a/23066423/2228771
-                 */
-                window.measureUIPerformance = function() {
-                    angular.element('#ng-app').injector()
-                    .invoke(function($rootScope) { var a = performance.now(); $rootScope.$apply(); console.log(performance.now()-a); });
-                };
 
                 // define lazy version as non-lazy version first.
                 // Once ready + bootstrapped, they will be overridden with the actual lazy version of things.
@@ -183,7 +194,11 @@ module.exports = NoGapDef.component({
                     }]);
                 }]);
 
+                // add custom directives
                 this._addDirectives(app);
+
+                // other initialization stuff
+                this._onInit();
                     
                 var This = this;
                 return pendingPromise = new Promise(function(resolve, reject) {
@@ -195,6 +210,9 @@ module.exports = NoGapDef.component({
 
                         // add pages to main scope
                         $scope.pages = pages;
+
+                        // add fixed elements
+                        $scope.fixedElements = fixedElements;
 
                         // add some useful functions to everyone's scope:
                         $scope.gotoPage = This.gotoPage.bind(This);
@@ -321,6 +339,7 @@ module.exports = NoGapDef.component({
 
                 console.assert(group, 'Page was not in any group - We need groups to determine what to load and when: ' + pageName);
 
+                // define page object
                 var page = {
                     name: pageName,
                     templateName: 'page/' + pageName,
@@ -333,7 +352,15 @@ module.exports = NoGapDef.component({
 
                     toString: function() { return this.name; },
                     invalidateView: function() {
-                        if (this.scope) this.scope.safeApply();
+                        if (this.scope) this.scope.safeDigest();
+                    },
+
+                    handleError: function(err) {
+                        if (this.scope) this.scope.handleError(err);
+                    },
+
+                    clearError: function() {
+                        if (this.scope) this.scope.clearError();
                     }
                 };
 
@@ -343,6 +370,7 @@ module.exports = NoGapDef.component({
                         return '';
                     };
                 }
+                this.Tools.bindAllMethodsToObject(page);
 
                 // add parent<->child Association
                 if (parentPageName) {
@@ -407,7 +435,8 @@ module.exports = NoGapDef.component({
                             this.urgentMarker = enabled;
 
                             // refresh menu
-                            invalidateMenuView();
+                            //invalidateMenuView();
+                            invalidateView();
                         },
 
                         // badge value
@@ -417,6 +446,12 @@ module.exports = NoGapDef.component({
                     // merge defaults into buttonData
                     var button = squishy.mergeWithoutOverride(buttonData, buttonDefaults);
 
+                    // add button template if any
+                    if (button.template) {
+                        button.templateName = button.templateName || ('nav/' + pageName);
+                        this.addTemplate(button.templateName, button.template);
+                    }
+
                     // store button
                     page.navButton = button;
 
@@ -424,8 +459,10 @@ module.exports = NoGapDef.component({
                     buttons.push(button);
                 }
 
+                // add page template so it can be rendered
                 this.addTemplate(page.templateName, content);
             },
+
 
             /**
              * Call this when creating the root scope of a page
@@ -442,11 +479,67 @@ module.exports = NoGapDef.component({
                 // remember page.scope and scope.page
                 page.scope = scope;
                 scope.page = page;
+                scope.PC = component;
 
                 scope.$on('$destroy', function() {
                     // un-register scope
                     page.scope = null;
                 });
+            },
+
+            _registerElementComponentBase: function(component) {
+                var uiControl = {
+                    component: component,
+                    scopes: [],
+
+                    invalidateView: function() {
+                        // invalidate all scopes (is this necessary?)
+                        for (var i = 0; i < this.scopes.length; ++i) {
+                            this.scopes[i].safeDigest();
+                        };
+                    },
+
+                    handleError: function(err) {
+                        // propagate error to all scopes
+                        for (var i = 0; i < this.scopes.length; ++i) {
+                            this.scopes[i].handleError(err);
+                        };
+                    },
+
+                    clearError: function() {
+                        for (var i = 0; i < this.scopes.length; ++i) {
+                            this.scopes[i].clearError();
+                        };
+                    }
+                };
+                this.Tools.bindAllMethodsToObject(uiControl);
+
+                component.ui = uiControl; 
+                return uiControl;
+            },
+
+            registerElementComponent: function(component) {
+                this._registerElementComponentBase(component);
+
+                uiElementComponents.push(component);
+            },
+
+            registerElementScope: function(component, scope) {
+                console.assert(component && component.ui,
+                    'Given component is not a UI component. You probably forgot ' +
+                    'to call `registerElementComponent` on it in `setupUI`: ' + component);
+
+                // decorate scope
+                AngularUtil.decorateScope(scope);
+
+                // manage scopes array
+                component.ui.scopes.push(scope);
+                scope.$on('$destroy', function() {
+                    _.remove(component.ui.scopes, scope);
+                });
+                
+                // add component to scope
+                scope[component._def.FullName] = component;
             },
 
             /**
@@ -458,6 +551,30 @@ module.exports = NoGapDef.component({
                     throw new Error('Invalid template data');
                 }
                 templateCache.put(templateName, content);
+            },
+
+            /**
+             *
+             */
+            registerFixedElementComponent: function(component, template) {
+                var ui = this._registerElementComponentBase(component);
+
+                // add templateName, and register component and template
+                ui.templateName = 'fixed/' + component._def.FullName;
+                this.addTemplate(ui.templateName, template);
+                fixedElements.push(ui);
+            },
+
+            registerFixedElementScope: function(component, $scope) {
+                AngularUtil.decorateScope($scope);
+                component.ui.scope = $scope;
+
+                $scope.$on('$destroy', function() {
+                    component.ui.scope = null;
+                });
+
+                // add component to scope
+                $scope[component._def.FullName] = component;
             },
 
             // ################################################################################################################
@@ -503,6 +620,14 @@ module.exports = NoGapDef.component({
                 // for now, we just settle with the fact that the page is still in the history and go back
                 //gotoPage('Home');
                 history.back();
+            },
+
+            getActivePage: function() {
+                return activePage;
+            },
+
+            refreshActivePage: function() {
+                activePage && activePage.component.activatePage(null, true);
             },
 
             /**
@@ -769,6 +894,9 @@ module.exports = NoGapDef.component({
                 // re-compute arguments
                 pageArgs = pageArgs || page.component.getPageArgs();
 
+                // this creates the page scope
+                invalidateView();
+
                 this._callOnPageActivateOnComponent(page.component, pageArgs);
             },
                     
@@ -905,6 +1033,12 @@ module.exports = NoGapDef.component({
                     invalidateView();
                 }
             },
+
+
+            // ################################################################################################################
+            // UI helpers
+            
+            invalidateView: invalidateView,
 
 
             Public: {
