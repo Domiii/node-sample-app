@@ -68,11 +68,30 @@
             <nav-button ng-repeat="button in navButtons.left">
             </nav-button>
           </ul>
-          <ul class="nav navbar-nav" style="float: right">
-            <nav-button ng-repeat="button in navButtons.right">
-            </nav-button>
-          </ul>
-            
+
+          <div class="btn-group" style="float: right">
+            <button ng-repeat="button in navButtons.right" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+              Action <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="menu">
+              <li>
+                <a href="#">
+                  <nav-button ng-repeat="button in navButtons.right"  class="" data-toggle="dropdown" aria-expanded="false">
+                  </nav-button>
+                </a>
+              </li>
+              <li><a href="#">Another action</a></li>
+              <li><a href="#">Something else here</a></li>
+              <li class="divider"></li>
+              <li> <a ng-disabled="busy"
+                        class="btn btn-lg btn-fancy" 
+                        ng-click="clickLogout()">
+                        <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+                    </a></li>
+            </ul>
+          </div>
+
+
         </div><!-- /.navbar-collapse -->
       </div>
     </nav>
