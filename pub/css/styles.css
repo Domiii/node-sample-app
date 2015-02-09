@@ -75,8 +75,32 @@ i {
   padding: 10px 15px;
 }
 
+.panel-default > .panel-heading {
+  background-color: Cornsilk; 
+}
+
+
+/* ########################################################################################## */
+/* Padding, Border, Margin */
+
 .no-padding {
-  padding: 0;
+  padding: 0 !important;
+}
+
+.some-padding {
+  padding: 10px;
+}
+
+.no-margin {
+  margin: 0 !important;
+}
+
+.some-margin {
+  margin: 10px;
+}
+
+.no-border {
+  border: 0 !important;
 }
 
 /*.dropdown-toggle::after {
@@ -98,9 +122,31 @@ html {
   overflow-y: scroll;
 }
 
-/* Bigger spinners */
-.fa-spin {
-  font-size: 1em;
+.aligned-form-addon {
+  width: 120px;
+}
+
+/**
+ * Custom upload button
+ */
+.btn-file {
+    position: relative;
+    overflow: hidden;
+}
+.btn-file input[type=file] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 100%;
+    min-height: 100%;
+    font-size: 100px;
+    text-align: right;
+    filter: alpha(opacity=0);
+    opacity: 0;
+    outline: none;
+    background: white;
+    cursor: inherit;
+    display: block;
 }
 
 .btn-block {
@@ -223,8 +269,8 @@ fieldset[disabled] .btn-fancy.active {
 /* Pages */
 
 .container-page {
-  /* This margin is usually at the bottom of the .nav menu */
-  /* But we removed it so sub nav and main nav have no gap in between */
+  /* This padding is usually at the bottom of the .nav menu */
+  /* But we removed it, because some pages don't need/want that empty space */
   padding-top: 15px;
   padding-left: 20px;
   padding-right: 20px;
@@ -261,6 +307,28 @@ fieldset[disabled] .btn-fancy.active {
   box-sizing: border-box;
 }
 
+.centered-y {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+
+/* ########################################################################################## */
+/* Menus */
+
+/* Vertically aligned with some padding on the right */
+.mini-menu-left {
+  display: inline-block;
+  vertical-align: middle;
+  padding-right: .8em;
+}
+
+/* ########################################################################################## */
+/* iframes */
+
+iframe {
+  border-width: 0px;
+}
 
 /* ########################################################################################## */
 /* Text */
@@ -289,11 +357,23 @@ textarea {
     box-sizing: border-box;         /* Opera/IE 8+ */
 }
 
-.text-bold {
+.info-text {
+  color: Grey;
+}
+
+.info-text-highlight {
+  background-color: #E3E3E3;
+  color: Black;
   font-weight: bold;
 }
 
+.highlight-own {
+  background-color: LightYellow !important;
+}
 
+.text-bold {
+  font-weight: bold;
+}
 
 /**
  * Text selection
@@ -373,7 +453,7 @@ hr {
 .vertical-space {
   clear: both;
   width: 100%;
-  height: 20px;
+  height: 1em;
   /*background-color:red;*/
 }
 

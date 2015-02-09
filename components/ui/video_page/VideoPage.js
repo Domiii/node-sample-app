@@ -6,21 +6,6 @@
 var NoGapDef = require('nogap').Def;
 
 module.exports = NoGapDef.component({
-
-    Includes: [
-        'VideoPlayerElement'
-    ],
-
-    Base: NoGapDef.defBase(function() {
-        return {
-            /**
-             * Treat these components as children of this page.
-             */
-            PageChildren: [
-                'VideoPlayerElement'
-            ]
-        };
-    }),
     /**
      * Everything defined in `Host` lives only on the host side (Node).
      */
@@ -32,6 +17,10 @@ module.exports = NoGapDef.component({
                 }
             },
             AutoIncludes: {
+            	css: [
+                    //video
+                    'VideoPage.css'
+                ]
             }
         },
                 
@@ -54,22 +43,18 @@ module.exports = NoGapDef.component({
     /**
      * Everything defined in `Client` lives only in the client (browser).
      */
-    Client: NoGapDef.defClient(function(Tools, Instance, Context) {
-        var ThisInstance;
-
+    Client: NoGapDef.defClient(function(Tools, Instance, Context) { 
         return {
-            __ctor: function() {
-                ThisInstance = this;
-            },
-
             /**
-             * Prepares the video page controller.
+             * Prepares the home page controller.
              */
             setupUI: function(UIMgr, app) {
-                // create Video controller
-                app.lazyController('videoCtrl', function($scope) {
-                    UIMgr.registerPageScope(ThisInstance, $scope);
-                });
+                var This = this;
+                
+                // create Home controller
+                app.lazyController('videoCtrl', ['$scope', function($scope) {
+                    
+                }]);
 
                 // register page
                 Instance.UIMgr.registerPage(this, 'Video', this.assets.template, {

@@ -40,11 +40,11 @@ module.exports = NoGapDef.component({
      * Everything defined in `Client` lives only in the client (browser).
      */
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
-        var ThisInstance;
+        var ThisComponent;
 
         return {
             __ctor: function() {
-                ThisInstance = this;
+                ThisComponent = this;
             },
 
             /**
@@ -53,12 +53,12 @@ module.exports = NoGapDef.component({
             setupUI: function(UIMgr, app) {
                 // create Home controller
                 app.lazyController('homeCtrl', function($scope) {
-                    UIMgr.registerPageScope(ThisInstance, $scope);
+                    UIMgr.registerPageScope(ThisComponent, $scope);
                     
                     $scope.clickLogout = function() {
                         $scope.busy = true;
                         
-                        return ThisInstance.Instance.User.logout()
+                        return ThisComponent.Instance.User.logout()
                         .finally(function() {
                             $scope.busy = false;
                         })

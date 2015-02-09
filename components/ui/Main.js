@@ -9,8 +9,6 @@ var NoGapDef = require('nogap').Def;
 
 
 module.exports = NoGapDef.component({
-    Namespace: 'bjt',
-    
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) { return {
         Assets: {
             AutoIncludes: {
@@ -69,6 +67,7 @@ module.exports = NoGapDef.component({
 
                     // our custom styles
                     'css/styles.css'
+
                 ]
             }
         },
@@ -184,14 +183,19 @@ module.exports = NoGapDef.component({
              */
             {
                 otherComponents: [
-                    // Basics
+                    // core utilities
+                    'FileUpload',
+                    
+                    // Models
                     'Group',
                 ],
 
                 pageComponents: [
                     'HomePage',
                     'AccountPage',
+                    'GroupPage',
                     'VideoPage',
+                    'ContactPage'
                 ],
 
                 mayActivate: function() {
@@ -308,8 +312,8 @@ module.exports = NoGapDef.component({
                     replace: true,
                     transclude: true,
                     template: '<span localized="1">{{translation}}</span>',
-                    scope: true,
-                    link: linkFun
+                    link: linkFun,
+                    scope: true
                 };
             });
 
@@ -352,7 +356,7 @@ module.exports = NoGapDef.component({
                             // call event handler
                             $scope.$eval($attrs.fileInputChanged);
                         }
-                        $scope.$apply();
+                        $scope.$digest();
                     });
                 };
 

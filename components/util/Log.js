@@ -109,11 +109,23 @@ module.exports = NoGapDef.component({
                     var isException = err && err.stack;
 
                     if (isException) {
+                        var parent = err.parent;    // access the underlying error here
+                        var sql = (parent && parent.sql) || err.sql;
+                        var sqlMessage = sql && 'SQL error `' + sql + ']';
                         if (!message) {
-                            message = 'exception during execution';
+                            if (sql) {
+                                message = sqlMessage;
+                            }
+                            else {
+                                message = 'exception';
+                            }
+                        }
+                        else {
+                            message += ' - ' + sqlMessage;
                         }
                         console.error(message = this.Tools.formatUserMessage((message && (message + ' - ') || '')));
                         console.error(err.stack);
+                        parent && parent.stack && console.error(parent.stack);
                     }
                     else {
                         var errString = err && err.message || err;

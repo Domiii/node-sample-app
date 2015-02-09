@@ -1,25 +1,49 @@
 // TODO: Separate between user-dependent and default config
+"use strict";
 
-var config = {
-    // we are in development mode
-    'dev': 1,
+module.exports = {
 
-    'title': 'Awesome Presentations!',
+    // ########################################################################################################################
+    // Other customizable settings
+
+    'defaultLocale': 'en',
 
     /**
-     * Whether to open the command line
+     * If # ratings is below this number, do not display the rating results yet.
      */
-    'console': 1,
-    
-    'defaultLocale': 'en',
+    'minItemRatingsToDisplay': 1,
+
+    // ########################################################################################################################
+    // Facebook settings
+
+    'facebookAppID': '369298383249820',
+    'facebookAppSecret': '8ab2043f222dc5db2065f1658151e071',
+    'facebookCallbackUrl': 'http://localhost:9123/auth/facebook/callback',
+
+
+    // ########################################################################################################################
+    // Mostly constant options
+
+    'title': 'BJT Online',
 
     // folder containing files, accessible by clients
     'publicFolder': 'pub',
 
+    'uploadFolder': 'uploads/',
+
+    /**
+     * Whether to open the command line
+     */
+    'console': 0,
+
+    'dev': 1,
+
+    'debug': 1,
+
     // Connection & transport parameters
     'httpd': {
         /**
-         * The port of the application.
+         * The port of the application
          */
         'port'     : '9123'
     },
@@ -35,7 +59,7 @@ var config = {
         'reconnectDelay':   '5'
     },
 
-    // define log files
+    // logging configuration
     'logging' : {
         'defaultFile' : '_log/app.log',
         'dbFile' : '_log/db.log',
@@ -60,7 +84,7 @@ var config = {
         'maxAge'   : 1000 * 60 * 60 * 24 * 30 * 1
     },
 
-    // configure NoGap components
+    // NoGap component and application configuration
     'nogap': {
         'publicFolder' : './pub',
         'logging'      : {
@@ -81,8 +105,9 @@ var config = {
          *      Some components do not gracefully resolve dependencies (yet).
          */
         'files'        : [
-            // core utilities
+            // core utilities (need to initialize first, for now)
             'util/CacheUtil',
+            'util/FileUpload',
 
             // core components
             'models/core/AppConfig',
@@ -90,6 +115,7 @@ var config = {
             'models/core/Group',
 
             // misc utilities
+            'util/Auth',
             'util/MiscUtil',
             'util/Localizer',
             'util/Log',
@@ -105,10 +131,11 @@ var config = {
 
             // user pages:
             'ui/home/HomePage',
+            'ui/group/GroupPage',
             'ui/account/AccountPage',
             'ui/video/VideoPage',
+            // contact pages:
+            'ui/contact_us/ContactPage'
         ]
     },
 };
-
-module.exports = config;

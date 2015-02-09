@@ -1,12 +1,12 @@
 <div class="fill container-page" ng-controller="accountCtrl">
 
-    <div ng-show="roleChanged"
+    <div ng-if="roleChanged"
         ng-click="clickDefaultDisplayRole()"
         class="alert alert-danger fill"
         >
         <localize key="account.downgradedPermissions" />
         <span style="color: orange" class="fa fa-exclamation-triangle" />
-        <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
         <br/>
     </div>
 
@@ -21,7 +21,7 @@
             </div>
         </div>
         <div class="panel-body">
-            <div ng-show="!!errorMessage" class="alert alert-danger fill">
+            <div ng-if="!!errorMessage" class="alert alert-danger fill">
                 <span>
                     {{errorMessage}}
                 </span>
@@ -41,7 +41,10 @@
                     <a ng-disabled="busy"
                         class="btn btn-lg btn-fancy" 
                         ng-click="clickLogout()">
-                        <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+                        <localize key="Logout"></localize>
+                        <span ng-style="{visibility: busy && 'visible' || 'hidden'}">
+                            <i class="fa fa-spinner fa-spin"></i>
+                        </span>
                     </a>
                 </div>
             	<br/>
@@ -67,12 +70,12 @@
                 <button type="button" class="btn btn-lg btn-fancy dropdown-toggle" ng-disabled="disabled">
                     <localize key="account.currentLanguage"/> - <localize key="{{currentUser.locale}}"/>
                     <span ng-show="!busyLocale" class="caret"></span>
-                    <span ng-show="busyLocale"><i class="fa fa-cog fa-spin"></i></span>
+                    <span ng-show="busyLocale"><i class="fa fa-spinner fa-spin"></i></span>
                 </button>
                 <ul class="dropdown-menu" role="menu">
-                    <li ng-repeat="locale in allLocales">
+                    <li ng-repeat="locale in PC.allLocales">
                         <a href="" ng-click="setLocale(locale); status.isopen = false;">
-                            <localize locale="{{locale}}" key="{{locale}}" />
+                            <localize locale="{{locale}}" key="{{locale}}"></localize>
                         </a>
                     </li>
                 </ul>
@@ -101,7 +104,7 @@
                     class="btn btn-lg btn-fancy" 
                     ng-click="clickStudentDisplayRole()">
                         <localize key="account.changeToStudentView" />
-                        <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+                        <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
                 </a>
             </div>
 

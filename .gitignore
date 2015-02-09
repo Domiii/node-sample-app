@@ -4,7 +4,7 @@ _log/*
 
 # ignore some auto-generated files
 auto_ip.txt
-data/tokens.json
+data/tokens.json*
 tmp
 
 # ignore user config

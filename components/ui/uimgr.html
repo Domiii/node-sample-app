@@ -23,14 +23,22 @@
 
   <!-- nav-button element template -->
   <script type="text/ng-template" id="UIMgr/navButton">
-    <li ng-show="button.show" 
+    <li ng-if="button.show" 
       ng-class="{ active: button.active }">
-      <a href="" title="{{ button.getText() }}" ng-click="button.onClick()">
+      <a href="" style="position: relative; vertical-align: middle;"
+        ng-click="button.onClick()">
+
+        <!-- custom template -->
+        <span ng-if="button.templateName"
+          ng-include="button.templateName">
+        </span>
+
+        <!-- classes -->
         <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
+
+        <!-- Text -->
         <span ng-if="button.getText()">{{ button.getText() }}</span>
 
-        <!-- Button decorations -->
-        <span style="font-size: 1em;">
           <!-- Orange Exclamation Mark -->
           <i ng-if="button.urgentMarker"
               style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
@@ -44,7 +52,6 @@
                   ><span
                   >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
           ></span>
-        </span>
       </a>
     </li>
   </script>
@@ -62,7 +69,6 @@
             <span class="icon-bar"></span>
           </button>
         </div>
-
         <!-- Navigation buttons -->
         <div class="collapse navbar-collapse" id="main-menu">
           <ul class="nav navbar-nav">
@@ -70,7 +76,7 @@
             </nav-button>
           </ul>
           <ul class="nav navbar-nav" style="float: right">
-            <nav-button ng-repeat="button in navButtons.right">
+            <nav-button ng-repeat="button in navButtons.right | orderBy: 'right'">
             </nav-button>
           </ul>
             
@@ -81,12 +87,18 @@
 
 
   <!-- Content -->
-  <div class="container fill" style="padding: 0">
+  <div class="container fill no-padding">
     <!-- Pages -->
     <div ng-repeat="page in pages"
       class="fill" style="position: relative;" 
-      ng-show="page.active"
+      ng-if="page.active"
       ng-include="page.templateName">
     </div>
+  </div>
+
+  <!-- Fixed "floaties" -->
+  <div style="position: fixed"
+    ng-repeat="element in fixedElements"
+    ng-include="element.templateName">
   </div>
 </div>

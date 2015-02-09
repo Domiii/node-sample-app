@@ -70,7 +70,6 @@ if (!squishy.getGlobalContext().squishy) {
 
     // export squishy itself
     squishy.exportGlobal('squishy', squishy);
-    console.log('exported squishy: ' + !!GLOBAL.squishy);
 
 
     // require other squishy-related files

@@ -356,7 +356,7 @@ module.exports = NoGapDef.component({
              * Sets error state, if no valid token was found.
              */
             _readToken: function() {
-                // there are only 3 types of tokens: `Not` ('!'), `And` ('+'), `Identifier`
+                // there are only 3 types of tokens: `Not` (!), `And` (+), `Identifier`
                 this._source.setCursor(this._index);
 
                 var token;
@@ -371,7 +371,6 @@ module.exports = NoGapDef.component({
                 }
                 else if (idFirstCharacter.test(c)) {
                     // Identifier
-                    // Note: Let's keep it easy with what constitutes as an "identifier", for now
                     var iStart = this._index;
 
                     var id = c;
@@ -417,8 +416,8 @@ module.exports = NoGapDef.component({
             },
 
             /**
-             * Recursive descent parser.
-             * Expects [<Value>, $].
+             * Start recursive descent parser.
+             * Expects either of [<Value>, $].
              */
             _parseStart: function() {
                 // check for empty string
@@ -460,7 +459,7 @@ module.exports = NoGapDef.component({
 
             /**
              * Expects either of [And, $].
-             * Note: We currently only have one concatenation (And).
+             * Note: There is currently only one type of concatenation (And).
              */
             _parseConcatenationOrEof: function() {
                 if (!this._nextToken()) return true;

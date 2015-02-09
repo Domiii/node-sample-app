@@ -7,15 +7,17 @@
 	     * Call $scope.$apply(fn), if it is safe to do so
 	     *  (i.e. digest or apply cycle is currently not executing).
 	     */
-	    safeApply: function(fn) {
+	    safeDigest: function(fn) {
+	    	if (!this.$root) return;		// scope has been destroyed
+
 	        var phase = this.$root.$$phase;
 	        if(phase == '$apply' || phase == '$digest') {
 	            if(fn && (fn instanceof Function)) {
 	                fn();
 	            }
 	        } else {
-	            this.$apply(fn);
-	            //this.applyAndMeasure(fn);
+	            this.$digest(fn);
+	            //this.digestAndMeasure(fn);
 	        }
 	    },
 
@@ -28,15 +30,37 @@
 	    	console.log(performance.now() - startTime);
 	    },
 
+        /**
+         * @see http://stackoverflow.com/a/23066423/2228771
+         */
+	    digestAndMeasure: function(fn) {
+	    	var startTime = performance.now();
+	    	this.$digest(fn); 
+	    	console.log(performance.now() - startTime);
+	    },
+
 	    /**
-	     * Uses `$attrs.$observe(attrName, ...)` to track changes to an attribute and
-	     * uses `$scope.$eval` to update the property of same name in $scope.
-	     * Same as using isolated scope: { <attrName>: '=' }.
+	     * Uses `$scope.$watch` to track `$attrs[attrName]`.
 	     * Also, if given, calls cb if the given attribute value changed.
 	     */
 	    bindAttrExpression: function($attrs, attrName, cb) {
 	        // bind to the given attribute
 	        this.$watch($attrs[attrName], function(newVal) {
+	            // expression value changed -> update scope
+	            this[attrName] = newVal;
+	            if (cb) {
+	                cb(newVal);
+	            }
+	        }.bind(this));
+	    },
+
+	    /**
+	     * Uses `$attrs.$observe(attrName, ...)` to track changes to given attribute and update
+	     * the corresponding value in $scope.
+	     */
+	    bindAttrValue: function($attrs, attrName, cb) {
+	        // bind to the given attribute
+	        $attrs.$observe(attrName, function(newVal) {
 	            // evaluate the attribute expression and update the scope
 	            this[attrName] = newVal;
 	            if (cb) {
@@ -55,8 +79,12 @@
 	     */
 	    onError: function(err) {
 	    	this.errorMessage = (err && err.message) || err;
-	    	this.safeApply();
+	    	this.safeDigest();
 	    },
+
+	    clearError: function() {
+	    	this.errorMessage = null;
+	    }
 	};
 
 
