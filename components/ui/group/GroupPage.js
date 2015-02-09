@@ -16,7 +16,7 @@ module.exports = NoGapDef.component({
      */
     Includes: [
         'GroupScoreElement',
-        'GroupIconUI'
+        'GroupIconElement'
     ],
 
     Base: NoGapDef.defBase(function() {
@@ -26,7 +26,7 @@ module.exports = NoGapDef.component({
              */
             PageChildren: [
                 'GroupScoreElement',
-                'GroupIconUI'
+                'GroupIconElement'
             ]
         };
     }),
