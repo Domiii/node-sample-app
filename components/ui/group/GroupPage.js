@@ -16,7 +16,7 @@ module.exports = NoGapDef.component({
      */
     Includes: [
         'GroupScoreElement',
-        'GroupIconUI'
+        'GroupIconElement'
     ],
 
     Base: NoGapDef.defBase(function() {
@@ -26,7 +26,7 @@ module.exports = NoGapDef.component({
              */
             PageChildren: [
                 'GroupScoreElement',
-                'GroupIconUI'
+                'GroupIconElement'
             ]
         };
     }),
@@ -273,7 +273,7 @@ module.exports = NoGapDef.component({
 
                 // register page
                 Instance.UIMgr.registerPage(this, 'Group', this.assets.template, {
-                    //cssClasses: 'fa fa-users',
+                    //iconClasses: 'fa fa-users',
                     template: '<group-icon gid="currentGroupGid" size="tiny"></group-icon>',
                     right: 1,
                     getText: function() {

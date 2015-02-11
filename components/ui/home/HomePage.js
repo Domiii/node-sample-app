@@ -68,7 +68,7 @@ module.exports = NoGapDef.component({
 
                 // register page
                 Instance.UIMgr.registerPage(this, 'Home', this.assets.template, {
-                    cssClasses: 'fa fa-home'
+                    iconClasses: 'fa fa-home'
                 });
             },
             

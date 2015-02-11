@@ -156,7 +156,10 @@ module.exports = NoGapDef.component({
                         $scope.roleChanged = roleChanged;
 
                         // sync button mark?
+
                         //ThisComponent.page.navButton.setUrgentMarker(roleChanged);
+                        ThisComponent.page.navButton && ThisComponent.page.navButton.setUrgentMarker(roleChanged);
+
                     };
 
                     
@@ -164,7 +167,9 @@ module.exports = NoGapDef.component({
                 });
 
                 // register page
+
                 Instance.UIMgr.registerPage(this, 'Account', this.assets.template);
+
             },
 
             onPageActivate: function() {

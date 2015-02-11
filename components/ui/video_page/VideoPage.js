@@ -58,7 +58,7 @@ module.exports = NoGapDef.component({
 
                 // register page
                 Instance.UIMgr.registerPage(this, 'Video', this.assets.template, {
-                    cssClasses: 'fa fa-video-camera'
+                    iconClasses: 'fa fa-video-camera'
                 });
             },
             
