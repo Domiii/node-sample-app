@@ -76,30 +76,30 @@ module.exports = NoGapDef.component({
      *
      */
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
-        var ThisInstance;
+        var ThisComponent;
 
         return {
             __ctor: function() {
-                ThisInstance = this;
+                ThisComponent = this;
             },
 
             /**
-             * Displays some pretty login form.
-             * @see http://bootsnipp.com/search?q=login
+             * 
              */
             setupUI: function(UIMgr, app) {
+                this.allLocales = Instance.Localizer.Default.getAllLocales();
+                
                 // create Account controller
                 app.lazyController('accountCtrl', function($scope) {
-                	UIMgr.registerPageScope(ThisInstance, $scope);
+                	UIMgr.registerPageScope(ThisComponent, $scope);
 
-                    $scope.allLocales = Instance.Localizer.Default.getAllLocales();
                     $scope.userRole = Instance.User.currentUser.role;
                     $scope.userRoleString = Instance.User.UserRole.toString($scope.userRole);
 
                     $scope.clickLogout = function() {
                         $scope.busy = true;
                         
-                        return ThisInstance.Instance.User.logout()
+                        return ThisComponent.Instance.User.logout()
                         .finally(function() {
                             $scope.busy = false;
                         })
@@ -112,9 +112,11 @@ module.exports = NoGapDef.component({
                      */
                     var changeDisplayRole = function(newRole) {
                         $scope.busyRole = true;
-                        ThisInstance.host.setDisplayRole(newRole)
-                        .then(function() {
+                        ThisComponent.host.setDisplayRole(newRole)
+                        .finally(function() {
                             $scope.busyRole = false;
+                        })
+                        .then(function() {
                             // blank the whole thing and reload
                             document.body.innerHTML = '';
                             location.reload();
@@ -136,12 +138,12 @@ module.exports = NoGapDef.component({
 
                     $scope.setLocale = function(newLocale) {
                         $scope.busyLocale = true;
-                        ThisInstance.host.setLocale(newLocale)
+                        ThisComponent.host.setLocale(newLocale)
                         .finally(function() {
                             $scope.busyLocale = false;
                         })
                         .then(function() {
-                            $scope.$root.$apply();
+                            $scope.$apply();
                         })
                         .catch($scope.handleError.bind($scope));
                     };
@@ -154,7 +156,7 @@ module.exports = NoGapDef.component({
                         $scope.roleChanged = roleChanged;
 
                         // sync button mark?
-                        ThisInstance.page.navButton.setUrgentMarker(roleChanged);
+                        //ThisComponent.page.navButton.setUrgentMarker(roleChanged);
                     };
 
                     
@@ -162,14 +164,7 @@ module.exports = NoGapDef.component({
                 });
 
                 // register page
-                Instance.UIMgr.registerPage(this, 'Account', this.assets.template, {
-                    cssClasses: 'fa fa-user',
-                    right: 1,
-                    getText: function() {
-                        var user = Instance.User.currentUser;
-                        return user && user.name;
-                    }
-                });
+                Instance.UIMgr.registerPage(this, 'Account', this.assets.template);
             },
 
             onPageActivate: function() {

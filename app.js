@@ -61,7 +61,7 @@ try {
 }
 catch (err) {
     // no matter
-    console.warn('[WARN] Could not load `appConfig.user.js`: ' + err.message);
+    console.warn('[WARN] Could not load `appConfig.user.js`');
 }
 
 // ####################################################################################
@@ -84,7 +84,7 @@ Object.prototype.toString = function() { return squishy.objToString(this, true, 
 Error.stackTraceLimit = 14;
 //Error.stackTraceLimit = Infinity;
 
-// only use one Promise library
+// only use one Promise library the entire application
 GLOBAL.Promise = Sequelize.Promise || require('bluebird');
 // setup long stack traces
 GLOBAL.Promise.longStackTraces();
@@ -123,7 +123,7 @@ Promise.resolve()
 .then(function() {
     // add favicon and session management middleware
 
-    // all these parsers do not play well with POST:
+    // all these parsers are somewhat evil
     // see: http://stackoverflow.com/questions/11295554/how-to-disable-express-bodyparser-for-file-uploads-node-js
     //app.use(bodyParser.json());
     //app.use(express.json()).use(express.urlencoded());

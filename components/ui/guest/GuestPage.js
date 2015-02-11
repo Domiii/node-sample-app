@@ -11,7 +11,6 @@ module.exports = NoGapDef.component({
      * 
      */
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
-    	var Facebookbla;
 
     	return {
 	        Assets: {
@@ -25,7 +24,7 @@ module.exports = NoGapDef.component({
 	        },
 
 	        __ctor: function() {
-				//Facebookbla = require(...);
+ 
 	        },
 	           
 
@@ -48,6 +47,23 @@ module.exports = NoGapDef.component({
 
 	                var authData = {userName: userName};
 	                return this.Instance.User.tryLogin(authData, preferredLocale);
+
+	            },
+
+                tryLoginFacebook: function(userName, facebookID, facebookToken, preferredLocale) {
+                    userName = Shared.ValidationUtil.validateNameOrTitle(userName)
+                    if (!userName) {
+                        // tell client that login failed
+                        return Promise.reject('error.login.auth');
+                    }
+
+                    var authData = {
+                        userName: userName,
+                        facebookID: facebookID,
+                        facebookToken: facebookToken
+                    };
+                    return this.Instance.User.tryLoginFacebook(authData, preferredLocale);
+
 	            }
 	        },
 	    };
@@ -61,12 +77,12 @@ module.exports = NoGapDef.component({
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
         var localizer;
         var scope;
-        var ThisInstance;
+        var ThisComponent;
 
         return {
             initClient: function() {
                 // get some default utilities
-                ThisInstance = this;
+                ThisComponent = this;
                 localizer = Instance.Localizer.Default;
             },
 
@@ -78,7 +94,7 @@ module.exports = NoGapDef.component({
                 // see: http://stackoverflow.com/questions/22589324/angular-js-basic-controller-return-error
                 // see: http://scotch.io/tutorials/javascript/submitting-ajax-forms-the-angularjs-way
                 app.lazyController('guestCtrl', ['$scope', function($scope) {
-                    UIMgr.registerPageScope(ThisInstance, $scope);
+                    UIMgr.registerPageScope(ThisComponent, $scope);
                     scope = $scope;
 
                     // data to populate the login form
@@ -97,7 +113,7 @@ module.exports = NoGapDef.component({
                         $scope.errorMessage = null;
                         $scope.busy = true;
 
-                        ThisInstance.host.tryLogin($scope.loginData.userName, Instance.User.getCurrentLocale())
+                        ThisComponent.host.tryLogin($scope.loginData.userName, Instance.User.getCurrentLocale())
                         .finally(function() {
                             $scope.busy = false;
                         })
@@ -126,7 +142,7 @@ module.exports = NoGapDef.component({
              */
             Public: {
                 onLoginSuccess: function() {
-                    scope.safeApply();
+                    scope.safeDigest();
                 }
             }
         };

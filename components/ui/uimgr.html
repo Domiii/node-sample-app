@@ -23,14 +23,22 @@
 
   <!-- nav-button element template -->
   <script type="text/ng-template" id="UIMgr/navButton">
-    <li ng-show="button.show" 
+    <li ng-if="button.show" 
       ng-class="{ active: button.active }">
-      <a href="" title="{{ button.getText() }}" ng-click="button.onClick()">
-        <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
-        <span ng-if="button.getText()">{{ button.getText() }}</span>
+      <a href="" style="position: relative; vertical-align: middle;"
+        ng-click="button.onClick()">
 
-        <!-- Button decorations -->
-        <span style="font-size: 1em;">
+        <!-- custom template -->
+        <span ng-if="button.templateName"
+          ng-include="button.templateName">
+        </span>
+
+        <!-- classes -->
+        <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
+
+        <!-- Text -->
+        <span ng-if="button.getText">{{ button.getText() }}</span>
+
           <!-- Orange Exclamation Mark -->
           <i ng-if="button.urgentMarker"
               style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
@@ -44,7 +52,6 @@
                   ><span
                   >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
           ></span>
-        </span>
       </a>
     </li>
   </script>
@@ -69,41 +76,31 @@
             </nav-button>
           </ul>
 
-          <div class="btn-group" style="float: right">
-            <button ng-repeat="button in navButtons.right" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-              Action <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-              <li>
-                <a href="#">
-                  <nav-button ng-repeat="button in navButtons.right"  class="" data-toggle="dropdown" aria-expanded="false">
-                  </nav-button>
-                </a>
-              </li>
-              <li><a href="#">Another action</a></li>
-              <li><a href="#">Something else here</a></li>
-              <li class="divider"></li>
-              <li> <a ng-disabled="busy"
-                        class="btn btn-lg btn-fancy" 
-                        ng-click="clickLogout()">
-                        <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
-                    </a></li>
-            </ul>
-          </div>
-
+          <ul class="nav navbar-nav" style="float: right">
+            <nav-button ng-repeat="button in navButtons.right | orderBy: 'right'">
+            </nav-button>
+          </ul>
+            
 
         </div><!-- /.navbar-collapse -->
       </div>
     </nav>
   </div>
 
+
   <!-- Content -->
-  <div class="container fill" style="padding: 0">
+  <div class="container fill no-padding">
     <!-- Pages -->
     <div ng-repeat="page in pages"
       class="fill" style="position: relative;" 
-      ng-show="page.active"
+      ng-if="page.active"
       ng-include="page.templateName">
     </div>
+  </div>
+
+  <!-- Fixed "floaties" -->
+  <div style="position: fixed"
+    ng-repeat="element in fixedElements"
+    ng-include="element.templateName">
   </div>
 </div>

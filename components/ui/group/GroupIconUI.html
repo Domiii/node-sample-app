@@ -1,0 +1,14 @@
+<div style="display: inline-block; width: {{sizeStrings[size]}}; height: {{sizeStrings[size]}}; line-height: {{sizeStrings[size]}}; overflow: hidden; vertical-align: middle; background-color: #fffff2; border-radius: {{ sizes[size]/8 }}px;"
+	code="group = allGroups.map[gid]; groupIconSrc = getGroupIconSrc(gid);"
+	ng-show="!!group">
+	<!-- see: http://stackoverflow.com/questions/28293924/the-story-of-a-divs-unaccounted-space -->
+	<center
+		><i ng-if="!group || !group.hasIcon()"
+			class="fa fa-group"
+			style="display: block; font-size: {{sizeStrings[size]}}; color: pink;"></i
+		><img ng-if="group && group.hasIcon()"
+			style=" display: block; height: {{sizeStrings[size]}}; width: auto; position: relative;"
+			ng-src="{{ groupIconSrc + '?' + group.updatedAt }}"></img
+	></center>
+	
+</div>

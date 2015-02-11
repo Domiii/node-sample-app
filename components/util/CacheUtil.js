@@ -71,7 +71,9 @@ module.exports = NoGapDef.component({
                     /**
                      * `initialize` function is called right after construction.
                      */
-                    initialize: function(cache) {},
+                    initialize: function(cache) {
+                        Object.defineProperty(this, 'Instance', { value: cache.Instance });
+                    },
 
                     /**
                      * `getSerializableRawData` is called by the transport layer to get the raw data.
@@ -694,6 +696,10 @@ module.exports = NoGapDef.component({
                         return object;
                     },
 
+                    onCreateObject: function(object) {
+                        return object;
+                    },
+
                     /**
                      * Called after objects have just been fetched from DB.
                      * Can be overwritten for customized post-query processing.
@@ -854,9 +860,9 @@ module.exports = NoGapDef.component({
                     /**
                      * Query objects and send to client.
                      */
-                    sendObjectsChangeFromQuery: function(queryInput) {
+                    applyChangesFromQuery: function(queryInput) {
                         // query objects from DB
-                        this.readObjects(queryInput)
+                        return this.readObjects(queryInput)
                         .then(function(objects) {
                             // send to client
                             this.Instance.CacheUtil.client.applyChanges(this.name, objects);
@@ -916,6 +922,7 @@ module.exports = NoGapDef.component({
                                 }
                             });
                         })
+                        .bind(this)
                         .then(this.wrapObject)
                         .then(this.onReadObject);
                     },
@@ -931,17 +938,23 @@ module.exports = NoGapDef.component({
                         .then(this.compileReadObjectsQuery)
 
                         // then, query actual data from DB
-                        .then(function(queryData) {
-                            var model = this.getModel();
-                            console.assert(model && model.find,
-                                '`getModel` did not return a valid Sequelize model.');
+                        .then(this.findObjects);
+                    },
 
-                            // run DB query and return POD
-                            return model.findAll(queryData)
-                            .then(function(resultRows) {
-                                return SequelizeUtil.getValuesFromRows(resultRows, queryData && queryData.include);
-                            });
+                    findObjects: function(queryData) {
+                        var model = this.getModel();
+                        console.assert(model && model.find,
+                            '`getModel` did not return a valid Sequelize model.');
+
+                        // run DB query
+                        return model.findAll(queryData)
+                        .then(function(resultRows) {
+                            // get only plain data
+                            return SequelizeUtil.getValuesFromRows(resultRows, queryData && queryData.include);
                         })
+
+                        // wrap, call events, then return result
+                        .bind(this)
                         .map(this.wrapObject)
                         .then(this.onReadObjects);
                     },
@@ -955,22 +968,26 @@ module.exports = NoGapDef.component({
                      */
                     createObject: function(queryInput, dontSendToClient) {
                         return Promise.resolve(queryInput)
+                        .bind(this)
                         .then(this.compileObjectCreate.bind(this))
+                        .tap(function() {
+                            //console.log('creating: ' + queryInput)
+                        })
 
                         // send create request to DB
                         .then(this.getModel().create.bind(this.getModel()))
                         .then(SequelizeUtil.getValuesFromRows)
                         .bind(this)
                         .then(this.wrapObject)
+                        .then(this.onCreateObject)
                         .then(function(newObj) {
                             // first, update client-side endpoint
                             if (!dontSendToClient) {
                                 this.applyChange(newObj);
                             }
 
-                            // then, call callback
-                            var newId = this.idGetter.call(this, newObj);
-                            return newId;
+                            // return new object
+                            return newObj;
                         });
                     },
 
@@ -1084,7 +1101,12 @@ module.exports = NoGapDef.component({
                     }
                     else {
                         // createObject
-                        return dataProvider.createObject(objectValues, true);
+                        return dataProvider.createObject(objectValues, true)
+                        .then(function(newObject) {
+                            // only send back new object's id
+                            var newId = dataProvider.idGetter.call(dataProvider, newObject);
+                            return newId;
+                        });
                     }
                 },
 
@@ -1231,7 +1253,7 @@ module.exports = NoGapDef.component({
                                         var newValue = newValues[propName];
                                         var oldValue = obj[propName];
                                         if (!angular.equals(newValue, oldValue)) {
-                                            // this object has changed
+                                            // this object (probably) has changed
                                             newData.push(newValues);
                                             break;
                                         }
@@ -1425,7 +1447,7 @@ module.exports = NoGapDef.component({
                     /**
                      * Send creation request to host.
                      */
-                    requestCreate: function(queryInput) {
+                    createObject: function(queryInput) {
                         var newObj = queryInput;
                         return this.Instance.CacheUtil.host.createObject(this.name, newObj)
                         .bind(this)
@@ -1442,11 +1464,11 @@ module.exports = NoGapDef.component({
                     /**
                      * Send update request to host.
                      */
-                    requestUpdate: function(queryInput) {
+                    updateObject: function(queryInput) {
                         // TODO: Support arbitrary queryInput
                         var id = this.idGetter(queryInput);
                         var origObj = _.clone(this.getObjectNowById(id));
-                        console.assert(origObj, '`requestUpdate` called with invalid object: ' + origObj);
+                        console.assert(origObj, '`updateObject` called with invalid object: ' + origObj);
 
                         // apply changes right away
                         this.applyChange(queryInput);
@@ -1466,7 +1488,7 @@ module.exports = NoGapDef.component({
                     /**
                      * Send delete request to host.
                      */
-                    requestDelete: function(objectOrId) {
+                    deleteObject: function(objectOrId) {
                         var id;
                         if (isNaN(objectOrId)) {
                             // argument is not a number: We assume object is given
@@ -1480,7 +1502,7 @@ module.exports = NoGapDef.component({
 
                         // apply changes right away
                         var origObj = this.removeFromCache(objectOrId);
-                        console.assert(origObj, '`requestDelete` called with invalid objectOrId: ' + objectOrId)
+                        console.assert(origObj, '`deleteObject` called with invalid objectOrId: ' + objectOrId)
 
                         // send request to host
                         return this.Instance.CacheUtil.host.deleteObject(this.name, id)

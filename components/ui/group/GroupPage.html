@@ -1,0 +1,273 @@
+<div class="fill container-page" ng-controller="groupCtrl"
+	code="currentGroup = allGroups.map[currentGroupGid]">
+
+	<!-- Own group -->
+    <div class="panel panel-success">
+        <div class="panel-heading">
+            <div class="panel-title" style="vertical-align: middle;">
+                <span>
+                	<localize key="group.yourGroup"></localize>:
+					<span ng-show="!!currentGroup">
+						<group-icon gid="currentGroupGid" size="tiny"></group-icon>
+						&nbsp;{{currentGroup.name}}
+					</span>
+                </span>
+            </div>
+        </div>
+        <div class="panel-body no-padding">
+        	<!-- Group Overview -->
+			<div class="container-stretched">
+				<!-- "You are currently not in a group!" -->
+				<div ng-show="!currentGroupGid" class="alert alert-warning fill">
+                	<localize key="group.notInAGroup" /> <span style="color: orange" class="fa fa-exclamation-triangle" />
+				</div>
+
+				<!-- General error -->
+				<div
+					ng-show="errorMessage"
+					class="container-stretched alert alert-danger">
+					{{errorMessage}}&nbsp;
+				</div>
+
+				<!-- Group info message (such as "You joined/left group xyz") -->
+				<alert ng-show="groupMessage"
+					type="info"
+					style="margin-top: 1em"
+					close="groupMessage = null;">
+					{{groupMessage}}&nbsp;
+				</alert>
+			</div>
+
+			<!-- Own Group Info -->
+			<div ng-show="!!currentGroupGid">
+				<div class="some-padding">
+					<!-- Group Icon -->
+					<!-- TODO: Make this prettier!
+							See: http://jsfiddle.net/danielzen/utp7j/ -->
+					<div style="display: inline-block;">
+						<group-icon gid="currentGroupGid" size="large"></group-icon>
+						<span ng-if="editing">
+							<group-icon gid="currentGroupGid" size="medium"></group-icon>
+							<group-icon gid="currentGroupGid" size="small"></group-icon>
+							<group-icon gid="currentGroupGid" size="tiny"></group-icon>
+						</span>
+
+						<!-- Upload icon menu -->
+						<div style="padding-top: .5em;">
+							<center><div ng-show="!editing">
+								<a class="btn btn-lg btn-fancy"
+									ng-click="toggleEditIcon()">
+								    <localize key="group.icon.edit"></localize>
+								</a>
+							</div></center>
+
+							<div ng-show="editing">
+								<span class="btn btn-lg btn-fancy btn-file"
+									ng-disabled="busy.icon">
+								    <localize key="group.icon.upload"></localize>
+								    <input type="file"
+								    	accept="image/*"
+								    	files="selectedIconFiles"
+								    	file-input-changed="uploadIconFile(selectedIconFiles)">
+								</span>
+								&nbsp;
+								<a class="btn btn-lg btn-fancy"
+									ng-show="currentGroup.hasIcon()"
+									ng-click="deleteIconFile()"
+									ng-disabled="busy.icon">
+									<localize key="Delete"></localize>
+								</a>
+								&nbsp;
+								<a class="btn btn-lg btn-fancy"
+									ng-click="toggleEditIcon();"
+									ng-disabled="busy.icon">
+									<i class="fa fa-check"></i>
+								</a>
+							    <span ng-show="busy.icon"><i class="fa fa-spinner fa-spin"></i></span>
+							</div>
+							<span>
+								<span ng-repeat="iconFile in selectedIconFiles">
+									{{iconFile.name}} ({{iconFile.size}} bytes)
+								</span>
+							</span>
+						</div>
+					</div>
+
+					<!-- Member list -->
+					<div>
+						<span class="list-item-text">
+							<localize key="group.members"></localize> (<span class="info-text"
+								>{{usersByGid[currentGroupGid].length || 0}}</span>):
+							<span ng-repeat="user in usersByGid[currentGroupGid]">
+								<span class="info-text-highlight"
+									>{{user.name}}</span>&nbsp;
+							</span>
+						</span>
+					</div>
+				</div>
+
+			    <!-- Own Group Meta Data -->
+				<accordion>
+				    <!-- Group Scores -->
+				    <accordion-group
+				        class="ratings"
+				        is-open="groupScoreViewOpen"
+				        ng-init="groupScoreViewOpen = true;">
+				        <accordion-heading>
+				            <div
+				                style="display:block; width:100%; cursor: pointer;">
+				                <span class="panel-title">
+				                    <localize key="group.score.title"></localize>
+				                    <span class="pull-right centered-y">
+				                        <i class="glyphicon" style="font-size:.5em;"
+				                            ng-class="{'glyphicon-chevron-down': groupScoreViewOpen, 'glyphicon-chevron-right': !groupScoreViewOpen}">
+				                        </i>
+				                    </span>
+				                </span>
+				            </div>
+				        </accordion-heading>
+
+				        <group-score>
+				        </group-score>
+				    </accordion-group>
+				</accordion>
+
+				<div class="vertical-space"></div>
+
+				<!-- Buttons -->
+				<div class="horizontal-spread">
+					<!-- Leave -->
+					<a ng-disabled="busy.ownGroup"
+			    		class="container-stretched btn btn-lg btn-fancy btn-block" 
+			    		style="display:inline-block"
+						ng-click="clickLeaveGroup(); creatingGroup = false;">
+						<localize key="group.leave"></localize>
+					</a>
+
+					<!-- Leave & Delete (only if empty) -->
+					<a ng-disabled="busy.ownGroup"
+			    		class="container-stretched btn btn-lg btn-fancy btn-block" 
+			    		style="display:inline-block"
+						ng-click="clickLeaveGroup(true); creatingGroup = false;"
+						ng-show="usersByGid[currentGroupGid].length <= 1">
+						<localize key="group.leaveAndDelete"></localize>
+					</a>
+				</div>
+			</div>
+		</div> <!-- panel-body -->
+	</div>
+
+	<!-- Other groups -->
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <div class="panel-title">
+				<localize key="group.otherGroups" />
+            </div>
+        </div>
+        <div class="panel-body no-padding">
+			<div class="container-stretched fill">
+				<div ng-show="(allGroups.list.length == (!!currentGroupGid + 0))" class="fill alert alert-info">
+					<localize key="group.noOtherGroups" />
+				</div>
+
+				<!-- Group List -->
+				<ul class="list-group fill">
+					<li class="list-group-item list-item-text"
+						ng-repeat="group in allGroups.list | filter:otherGroupsFilter">
+
+						<!-- Group Buttons -->
+						<div class="mini-menu-left">
+					    	<a class="btn btn-lg btn-fancy"
+					    		href=""
+					    		ng-show="!currentGroupGid"
+					    		ng-disabled="busy.ownGroup" 
+					    		ng-click="clickJoinGroup(group)">
+					    		<localize key="group.join" /></a>
+						</div>
+
+						<!-- Group Info -->
+						<div class="centered-y">
+							<div class="centered-y" style="">
+								<span>
+									<group-icon gid="group.gid" size="small"></group-icon>
+									&nbsp;{{group.name}}
+								</span>
+							</div>
+
+							<!-- Member list -->
+							<div><span>
+								<localize key="group.members"></localize> (<span class="info-text"
+									>{{usersByGid[group.gid].length || 0}}</span>):
+								<span ng-repeat="user in usersByGid[group.gid]">
+									<span class="info-text-highlight"
+										>{{user.name}}</span>&nbsp;
+								</span>
+							</span></div>
+						</div>
+					</li>
+				</ul>
+
+				<!-- Ungrouped users -->
+				<div ng-show="usersByGid[0].length"
+					class="alert alert-info fill">
+					Users without a group:
+					<span class="info-text-highlight"
+						ng-repeat="user in usersByGid[0]">
+						{{user.name}}
+					</span>
+				</div>
+			</div>
+		</div>
+	</div>  <!-- Other groups -->
+
+
+	<!-- Create own group -->
+	<div ng-show="!currentGroupGid"
+		class="container-stretched"
+		style="padding-bottom: 3em">
+
+		<div ng-show="!creatingGroup">
+			<!-- "Create New Group!" -->
+			<a ng-disabled="busy.ownGroup"
+			 class="container-stretched btn btn-lg btn-fancy btn-block" 
+			ng-click="creatingGroup = true;">
+				Create New Group
+			</a>
+		</div>
+
+		<div
+			class="container-stretched input-group input-group-lg fill group-item">
+			<!-- Create Button -->
+			<a 
+			ng-show="creatingGroup"
+			ng-disabled="busy.ownGroup || groupNameError"
+			class="aligned-form-addon input-group-addon btn btn-fancy"
+			ng-click="clickCreateGroup()">
+				<localize key="group.create" />
+					<span ng-style="{visibility: busy.ownGroup && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
+			</a>
+
+			<!-- Group name text input -->
+			<validated-text-input tabindex="1" 
+				ng-show="creatingGroup"
+				class="form-control"
+				placeholder="{{localize('groupName')}}" required autofocus 
+				validate-model="newGroupName"
+				validate-error="groupNameError"
+				validate-result-invalid="true">
+			</validated-text-input>
+		</div>
+
+		<!-- Group creation validation error -->
+		<!-- Only reserve space for error, when creating group -->
+		<div
+			ng-show="creatingGroup"
+			ng-style="{visibility: (!!groupNameError) && 'visible' || 'hidden'}"
+			class="container-stretched alert alert-danger">
+			<localize 
+				ng-show="groupNameError"
+				key="group.invalidName"></localize> &nbsp;
+		</div>
+		<!-- <input tabindex="1" type="text" class="form-control" placeholder="group name" required autofocus ng-model="newGroupName"> -->
+	</div>
+</div>

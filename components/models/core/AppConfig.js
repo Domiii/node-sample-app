@@ -1,5 +1,6 @@
 /**
- * The AppConfig defines, and allows manipulation and sharing of global application settings.
+ * The AppConfig wraps the `appConfig` values into a component.
+ * TODO: Enable manipulation of `appConfig` values by storing it all in DB.
  */
 "use strict";
 
