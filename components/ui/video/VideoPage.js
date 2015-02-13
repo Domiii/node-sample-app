@@ -7,20 +7,6 @@ var NoGapDef = require('nogap').Def;
 
 module.exports = NoGapDef.component({
 
-    Includes: [
-        'VideoPlayerElement'
-    ],
-
-    Base: NoGapDef.defBase(function() {
-        return {
-            /**
-             * Treat these components as children of this page.
-             */
-            PageChildren: [
-                'VideoPlayerElement'
-            ]
-        };
-    }),
     /**
      * Everything defined in `Host` lives only on the host side (Node).
      */
@@ -69,6 +55,7 @@ module.exports = NoGapDef.component({
                 // create Video controller
                 app.lazyController('videoCtrl', function($scope) {
                     UIMgr.registerPageScope(ThisInstance, $scope);
+                    $scope.videoId = 'M7lc1UVf-VE';
                 });
 
                 // register page

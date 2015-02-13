@@ -23,6 +23,12 @@ module.exports = NoGapDef.component({
                     'lib/angular/ui-bootstrap-tpls-0.11.2',
 
                     /**
+                     * Angular YouTube Directive
+                     * @see https://github.com/brandly/angular-youtube-embed
+                     */
+                    'lib/angular/angular-youtube-embed.js',
+
+                    /**
                      * lodash can do all kinds of stuff
                      * @see lodash.com/docs
                      */
@@ -524,7 +530,8 @@ module.exports = NoGapDef.component({
                 // Added modules:
                 var includeModules = [
                     'ui.bootstrap',
-                    'timespanPicker'
+                    'timespanPicker',
+                    'youtube-embed'
                 ];
                 var angularApp = angular.module('app', includeModules);
 
