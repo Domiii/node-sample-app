@@ -55,6 +55,7 @@ module.exports = NoGapDef.component({
                     // some DOM + UI utilities
                     'js/DomUtil',
                     'js/angular_ui/timespan-picker',
+                    'js/angular_ui/angular-keyboard-manager'
                     // Array utilities
                     
                 ],
@@ -531,7 +532,8 @@ module.exports = NoGapDef.component({
                 var includeModules = [
                     'ui.bootstrap',
                     'timespanPicker',
-                    'youtube-embed'
+                    'youtube-embed',
+                    'keyboard-manager'
                 ];
                 var angularApp = angular.module('app', includeModules);
 
