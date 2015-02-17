@@ -138,4 +138,12 @@ module.exports = {
             'ui/contact_us/ContactPage'
         ]
     },
+
+    // Video player specific configurations
+    'videoPlayer': {
+        'keyBindings': {
+            'setFlag'  : 'n',
+            'playPause': 'space'
+        }
+    }
 };
