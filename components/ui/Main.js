@@ -23,10 +23,13 @@ module.exports = NoGapDef.component({
                     'lib/angular/ui-bootstrap-tpls-0.11.2',
 
                     /**
-                     * Angular YouTube Directive
-                     * @see https://github.com/brandly/angular-youtube-embed
+                     * Video.js
+                     * @see http://www.videojs.com/
+                     * Video.js plugin:
+                     * youtube
                      */
-                    'lib/angular/angular-youtube-embed.js',
+                    'lib/video-js/video.dev',
+                    'lib/video-js/vjs.youtube',
 
                     /**
                      * lodash can do all kinds of stuff
@@ -71,6 +74,13 @@ module.exports = NoGapDef.component({
                      * @see http://necolas.github.io/normalize.css/
                      */
                     'lib/normalize.css',
+
+                    /**
+                     * Video.js
+                     * @see http://www.videojs.com/
+                     * Video.js plugin:
+                     */
+                    'lib/video-js/video-js.css',
 
                     // our custom styles
                     'css/styles.css'
@@ -532,7 +542,6 @@ module.exports = NoGapDef.component({
                 var includeModules = [
                     'ui.bootstrap',
                     'timespanPicker',
-                    'youtube-embed',
                     'keyboard-manager'
                 ];
                 var angularApp = angular.module('app', includeModules);
