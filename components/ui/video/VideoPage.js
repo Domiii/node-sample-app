@@ -99,6 +99,7 @@ module.exports = NoGapDef.component({
                             var parsedMediaType = parseSourceUrl($scope.sourceUrl);
                             $scope.mediaType = parsedMediaType !== "unknown" ? parsedMediaType : $scope.mediaType;
                             $scope.player.src({ "src": $scope.sourceUrl, "type": $scope.mediaType });
+                            $scope.flags = [];
                         }
                     });
 

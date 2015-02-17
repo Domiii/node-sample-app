@@ -12,11 +12,11 @@ angular.module('keyboard-manager', [])
         var keyboardManagerService = {};
 
         var defaultOption = {
-            'type'        : 'keydown',
-            'propagate'   : false,
-            'inputDisabled': false,
-            'target'      : $window.document,
-            'keyCode'     : false
+            'type'          : 'keydown',
+            'propagate'     : false,
+            'inputDisabled' : false,
+            'target'        : $window.document,
+            'keyCode'       : false
         };
         // Store all keyboard combination shortcuts
         keyboardManagerService.keyboardEvent = {};
