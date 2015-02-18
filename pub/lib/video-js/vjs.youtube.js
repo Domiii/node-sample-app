@@ -895,7 +895,7 @@
     '.vjs-youtube .vjs-poster, ' +
     '.vjs-youtube .vjs-loading-spinner, ' +
     '.vjs-youtube .vjs-big-play-button, .vjs-youtube .vjs-text-track-display{ pointer-events: none !important; }' +
-    '.vjs-youtube.vjs-user-active .iframeblocker { display: none; }' +
+    //'.vjs-youtube.vjs-user-active .iframeblocker { display: none; }' +
     '.vjs-youtube.vjs-user-inactive .vjs-tech.onDesktop { pointer-events: none; }' +
     '.vjs-quality-button > div:first-child > span:first-child { position:relative;top:7px }';
 

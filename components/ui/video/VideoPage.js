@@ -62,7 +62,7 @@ module.exports = NoGapDef.component({
                     UIMgr.registerPageScope(ThisInstance, $scope);
 
                     var createVideoElement = function() {
-                        var videoElement = angular.element('<video id="player" src="" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="640" height="360"></video>');
+                        var videoElement = angular.element('<video id="player" src="" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="auto" height="auto"></video>');
                         $element.prepend(videoElement);
                     };
 

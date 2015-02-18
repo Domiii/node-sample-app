@@ -472,13 +472,17 @@ hr {
   line-height: 1.4em;
 }
 
-/* Youtube API */
-#player {
-  display: block;
-  width: 640px;
-  height: 390px;
-  margin: 0 auto;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  border: 0;
+/* Video Player Container */
+.video-content {
+    width: 100%;
+    max-width: 640px;
+    display: block;
+    margin: 0 auto;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: 0;
 }
+
+/* Responsive Video*/
+.video-js {padding-top: 56.25%}
+.vjs-fullscreen {padding-top: 0px}
