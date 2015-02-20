@@ -558,7 +558,7 @@
         }
       }
     });
-
+this.isReady_ = false;
     this.ytplayer.vjsTech = this;
   };
 
