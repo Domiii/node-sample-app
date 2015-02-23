@@ -1,11 +1,9 @@
 /**
- * TODO: 1.Wrap the player with a Angular directive and flag with plugin directive (modularize)
- * TODO: 2.improve watch to wait for user typing in url
- * TODO: 3.z-index test (a.youtube iframe blocker, b.control bar disappear on change source)
- * TODO: 4.register onComplete event and onPause event (to show big play button)
- * TODO: 5.make the video player responsive
- * TODO: 6.test on other browsers
- * TODO: 7.Enhance error source url handling (when source url is not valid)
+ * TODO: 1.Wrap the player with an Angular directive and flag with plugin directive (modularize)
+ * TODO: 2.Improve watch to wait for user typing in url
+ * TODO: 3.onReady problem
+ * TODO: 4.Ensure all buttons get the player parameters (e.g. duration) only when the player is ready
+ * TODO: 5.Enhance error source url handling (when source url is not valid)
  */
 "use strict";
 
@@ -61,31 +59,18 @@ module.exports = NoGapDef.component({
                 app.lazyController('videoCtrl', function($scope, $element, $interval, keyboardManager) {
                     UIMgr.registerPageScope(ThisInstance, $scope);
 
-                    var createVideoElement = function() {
-                        var videoElement = angular.element('<video id="player" src="" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="auto" height="auto"></video>');
-                        $element.children('.video-content').prepend(videoElement);
-                    };
-
-                    // Different kinds of media types
                     var mediaTypes = {
-                        "YOUTUBE": "video/youtube",
-                        "MP4"    : "video/mp4",
-                        "WEBM"   : "video/webm",
-                        "OGG"    : "video/ogg",
+                        YOUTUBE: { type: "video/youtube", techOrder: ["youtube"] },
+                        MP4    : { type: "video/mp4", techOrder: ["html5", "flash"] },
+                        WEBM   : { type: "video/webm", techOrder: ["html5", "flash"] },
+                        OGG    : { type: "video/ogg", techOrder: ["html5", "flash"] },
 
-                        "UNKNOWN": "unknown"
+                        UNKNOWN: "unknown"
                     };
 
-                    var getTechOrderFromMediaType = function(mediaType) {
-                        switch (mediaType) {
-                            case mediaTypes['YOUTUBE']:
-                                return ["youtube"];
-                            case mediaTypes['MP4']:
-                            case mediaTypes['WEBM']:
-                            case mediaTypes['OGG']:
-                            case mediaTypes['UNKNOWN']:
-                                return ["html5", "flash"];
-                        }
+                    var tag = function(startTime, endTime, label) {
+                        this.range = [startTime, endTime];
+                        this.label = label;
                     };
 
                     /**
@@ -156,14 +141,44 @@ module.exports = NoGapDef.component({
                     };
 
                     /**
+                     * Video player setup
+                     */
+                    var createVideoElement = function() {
+                        var videoElement = angular.element(
+                            '<video id="player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="auto" height="auto">' +
+                                '<source/>' +
+                            '</video>');
+                        $element.children('.video-content').prepend(videoElement);
+                    };
+
+                    var createPlayer = function(sourceUrl) {
+                        createVideoElement();
+                        $scope.mediaType = parseSourceUrl(sourceUrl);
+                        var sourceElement = $element.find('source');
+                        sourceElement.attr('src', sourceUrl);
+                        sourceElement.attr('type', $scope.mediaType.type);
+                        var player = videojs('player', { "techOrder": $scope.mediaType.techOrder });
+                        return player
+                    };
+
+                    var destroyPlayer = function(player) {
+                        if (player) {
+                            player.dispose();
+                            player = null;
+                        }
+                    };
+
+                    /**
                      * Player event handlers
                      */
                     var onReady = function() {
                         addKeyBindings();
                         startGetCurrentTime();
+                        //$scope.duration = $scope.player.duration();
                     };
 
                     var onDispose = function() {
+                        destroyPlayer($scope.player);
                         removeKeyBindings();
                         stopGetCurrentTime();
                     };
@@ -172,41 +187,39 @@ module.exports = NoGapDef.component({
                      * Scope Data
                      */
                     $scope.sourceUrl = "http://www.youtube.com/watch?v=M7lc1UVf-VE";  // Default Source Url
-                    $scope.mediaType = mediaTypes['YOUTUBE'];
+                    $scope.mediaType = parseSourceUrl($scope.sourceUrl);
                     //$scope.sourceUrl = "http://video-js.zencoder.com/oceans-clip.mp4";  // Default Source Url
                     //$scope.mediaType = mediaTypes['MP4'];
 
-                    $scope.player = videojs('player', { "techOrder": getTechOrderFromMediaType($scope.mediaType) });
-                    $scope.player.src({ "src": $scope.sourceUrl, "type": $scope.mediaType });
+                    $scope.player = createPlayer($scope.sourceUrl);
 
                     $scope.currentTime = 0;
                     $scope.flags = [];
+                    $scope.myTags = [];
+
+                    $scope.player.ready(onReady);
 
                     /**
                      * Scope Functions
                      */
                     $scope.$watch("sourceUrl", function(newValue, oldValue) {
                         if (newValue !== oldValue) {
-                            var parsedMediaType = parseSourceUrl($scope.sourceUrl);
+                            var parsedMediaType = parseSourceUrl(newValue);
                             if (parsedMediaType !== "unknown") {
                                 $scope.mediaType = parsedMediaType;
                             } else {
                                 $scope.sourceUrl = oldValue;
                             }
-                            if ($scope.player) {
-                                $scope.player.dispose();
-                                onDispose();
-                                createVideoElement();
-                                $scope.player = videojs('player', { "techOrder": getTechOrderFromMediaType($scope.mediaType) });
-                                $scope.player.src({ "src": $scope.sourceUrl, "type": $scope.mediaType });
-                                $scope.player.ready(onReady);
-                            }
+                            onDispose();
+                            $scope.player = createPlayer(newValue);
+                            $scope.player.ready(onReady);
                             $scope.flags = [];
+                            $scope.myTags = [];
                         }
                     });
 
                     /**
-                    * Flag handlers
+                    * Flag / Tag handlers
                     */
                     $scope.addFlag = function() {
                         $scope.flags.push($scope.currentTime);
@@ -217,12 +230,19 @@ module.exports = NoGapDef.component({
                         $scope.flags = _.without($scope.flags, value);
                     };
 
+                    $scope.addTag = function() {
+                        $scope.duration = $scope.player.duration();
+                        //var startTime = ($scope.currentTime - 5) > 0 ? ($scope.currentTime - 5) : 0;
+                        //var endTime = ($scope.currentTime + 5) < $scope.duration ? ($scope.currentTime + 5) : $scope.duration;
+                        //$scope.myTags.push(new tag(startTime, endTime, ""));
+                        $scope.myTags.push(new tag($scope.currentTime, $scope.currentTime, ""));
+                    };
 
-                    $scope.player.ready(onReady);
+                    $scope.removeTag = function(value) {
+                        $scope.myTags = _.without($scope.myTags, value);
+                    };
 
                     $scope.$on('$destroy', function () {
-                        $scope.player.dispose();
-                        $scope.player = null;
                         onDispose();
                     });
                 });

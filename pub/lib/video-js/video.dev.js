@@ -73,14 +73,14 @@ var vjs = function(id, options, ready){
 var videojs = window['videojs'] = vjs;
 
 // CDN Version. Used to target right flash swf.
-vjs.CDN_VERSION = '4.11';
+vjs.CDN_VERSION = '4.12';
 vjs.ACCESS_PROTOCOL = ('https:' == document.location.protocol ? 'https://' : 'http://');
 
 /**
 * Full player version
 * @type {string}
 */
-vjs['VERSION'] = '4.11.4';
+vjs['VERSION'] = '4.12.1';
 
 /**
  * Global Player instance options, surfaced from vjs.Player.prototype.options_
@@ -133,7 +133,7 @@ vjs.options = {
 };
 
 // Set CDN Version of swf
-// The added (+) blocks the replace from changing this 4.11 string
+// The added (+) blocks the replace from changing this 4.12 string
 if (vjs.CDN_VERSION !== 'GENERATED'+'_CDN_VSN') {
   videojs.options['flash']['swf'] = vjs.ACCESS_PROTOCOL + 'vjs.zencdn.net/'+vjs.CDN_VERSION+'/video-js.swf';
 }
@@ -5289,10 +5289,13 @@ vjs.Player.prototype.listenForUserActivity = function(){
 };
 
 /**
- * Gets or sets the current playback rate.
- * @param  {Boolean} rate   New playback rate to set.
+ * Gets or sets the current playback rate.  A playback rate of 
+ * 1.0 represents normal speed and 0.5 would indicate half-speed
+ * playback, for instance.
+ * @param  {Number} rate    New playback rate to set.
  * @return {Number}         Returns the new playback rate when setting
  * @return {Number}         Returns the current playback rate when getting
+ * @see https://html.spec.whatwg.org/multipage/embedded-content.html#dom-media-playbackrate
  */
 vjs.Player.prototype.playbackRate = function(rate) {
   if (rate !== undefined) {
@@ -6878,13 +6881,13 @@ vjs.MediaTechController.prototype.emulateTextTracks = function() {
 vjs.MediaTechController.prototype.textTracks_;
 
 vjs.MediaTechController.prototype.textTracks = function() {
-  this.textTracks_ = this.textTracks_ || new vjs.TextTrackList();
-  return this.textTracks_;
+  this.player_.textTracks_ = this.player_.textTracks_ || new vjs.TextTrackList();
+  return this.player_.textTracks_;
 };
 
 vjs.MediaTechController.prototype.remoteTextTracks = function() {
-  this.remoteTextTracks_ = this.remoteTextTracks_ || new vjs.TextTrackList();
-  return this.remoteTextTracks_;
+  this.player_.remoteTextTracks_ = this.player_.remoteTextTracks_ || new vjs.TextTrackList();
+  return this.player_.remoteTextTracks_;
 };
 
 createTrackHelper = function(self, kind, label, language, options) {
@@ -9061,11 +9064,17 @@ vjs.TextTrackMenuItem = vjs.MenuItem.extend({
     if (tracks && tracks.onchange === undefined) {
       this.on(['tap', 'click'], function() {
         if (typeof window.Event !== 'object') {
-          event = new window.Event('change');
-        } else {
+          // Android 2.3 throws an Illegal Constructor error for window.Event
+          try {
+            event = new window.Event('change');
+          } catch(err){}
+        }
+
+        if (!event) {
           event = document.createEvent('Event');
           event.initEvent('change', true, true);
         }
+
         tracks.dispatchEvent(event);
       });
     }
@@ -9552,10 +9561,6 @@ vjs.ChaptersTrackMenuItem.prototype.update = function(){
       if (option.value === value) {
         break;
       }
-    }
-
-    if (target.selectedOptions) {
-      target.selectedOptions[0] = option;
     }
 
     target.selectedIndex = i;

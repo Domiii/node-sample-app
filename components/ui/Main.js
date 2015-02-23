@@ -21,6 +21,12 @@ module.exports = NoGapDef.component({
                      * @see http://angular-ui.github.io/bootstrap/
                      */
                     'lib/angular/ui-bootstrap-tpls-0.11.2',
+                    'lib/angular/slider.js',
+
+                    /**
+                     * Jquery UI
+                     */
+                    'lib/jquery-ui/jquery-ui',
 
                     /**
                      * Video.js
@@ -74,6 +80,11 @@ module.exports = NoGapDef.component({
                      * @see http://necolas.github.io/normalize.css/
                      */
                     'lib/normalize.css',
+
+                    /**
+                     * Jquery UI
+                     */
+                    'lib/jquery-ui/jquery-ui.css',
 
                     /**
                      * Video.js
@@ -542,7 +553,8 @@ module.exports = NoGapDef.component({
                 var includeModules = [
                     'ui.bootstrap',
                     'timespanPicker',
-                    'keyboard-manager'
+                    'keyboard-manager',
+                    'ui.slider'
                 ];
                 var angularApp = angular.module('app', includeModules);
 
