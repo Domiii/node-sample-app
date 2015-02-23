@@ -99,11 +99,21 @@
 
 
             <!-- Change to Student View -->
-            <div>
+            <div style="float:left;">
                 <a ng-disabled="busyRole"
                     class="btn btn-lg btn-fancy" 
                     ng-click="clickStudentDisplayRole()">
                         <localize key="account.changeToStudentView" />
+                        <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
+                </a>
+            </div>
+
+            <!-- Create Activity -->
+            <div style="float:left;">
+                <a ng-disabled="busyRole"
+                    class="btn btn-lg btn-fancy" 
+                    ng-click="tryDelete(frame.article)">
+                        <localize key="account.createActivity" />
                         <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
                 </a>
             </div>

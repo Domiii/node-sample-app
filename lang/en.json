@@ -78,6 +78,7 @@
     "account.yourAccount": "Your Account",
     "account.userInfo": "Username: {1}",
     "account.changeToStudentView" : "Change to Student View",
+    "account.createActivity" : "Create Activity",
     "account.currentLanguage": "Language",
 
     "error.login.auth": "Invalid username or password.",

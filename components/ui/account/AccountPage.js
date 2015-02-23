@@ -79,6 +79,8 @@ module.exports = NoGapDef.component({
         var ThisComponent;
 
         return {
+
+
             __ctor: function() {
                 ThisComponent = this;
             },
@@ -164,6 +166,45 @@ module.exports = NoGapDef.component({
 
                     
                     $scope.updateRoleStatus(Instance.User.currentUser.displayRole);
+                
+                    // okCancelModal
+                    $scope.tryDelete = function(article) {
+                        // check deletion
+                        var title = 'WARNING - You are deleting';
+                        var body = 'Do you really want to delete';
+                        $scope.okCancelModal('lg', title, body, function() {
+                            // user pressed Ok -> Do delete article!
+                            $scope.delete(article);
+                        });
+                    };
+
+                    $scope.delete = function(article) {
+                        // delete article!
+                        $scope.busy = false;
+
+                        Instance.WikiArticle.host.deleteArticlePublic(article.getTypeId(), article.itemId)
+                        .finally(function() {
+                        })
+                        .then(function() {
+                            // deleted article (i.e. item)!
+                            if (article.getTypeId() == TypeId.Problem) {
+                                // deleted problem - go back to activity page
+                                Instance.UIMgr.gotoPage('Activity');
+                                Instance.ActivityPage.setInfoText('activity.deletedProblem', 
+                                    article.title || [' ']);
+                            }
+                            else {
+                                // deleted solution
+                            }
+                            $scope.safeDigest();
+                        })
+                        .catch(function(err) {
+                            // unable to delete article
+                            $scope.busy = true;
+                            $scope.handleError(err);
+                        });
+                    };
+   
                 });
 
                 // register page
