@@ -25,7 +25,16 @@
   <script type="text/ng-template" id="UIMgr/navButton">
     <li ng-if="button.show" 
       ng-class="{ active: button.active }">
-      <a href="" style="position: relative; vertical-align: middle;"
+
+      <!-- custom template, no button -->
+      <span ng-if="!button.onClick && button.templateName"
+        ng-include="button.templateName">
+      </span>
+
+      <!-- actual button -->
+      <a href="" 
+        ng-if="button.onClick"
+        style="position: relative; vertical-align: middle;"
         ng-click="button.onClick()">
 
         <!-- custom template -->
@@ -34,24 +43,24 @@
         </span>
 
         <!-- classes -->
-        <i ng-if="button.cssClasses" class="{{ button.cssClasses }}"></i>
+        <i ng-if="button.iconClasses" class="{{ button.iconClasses }}"></i>
 
         <!-- Text -->
-        <span ng-if="button.getText()">{{ button.getText() }}</span>
+        <span ng-if="!!button.getText">{{ button.getText() }}</span>
 
-          <!-- Orange Exclamation Mark -->
-          <i ng-if="button.urgentMarker"
-              style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
-              class="fa fa-exclamation">
-          </i>
+        <!-- Orange Exclamation Mark -->
+        <i ng-if="button.urgentMarker"
+            style="position: absolute; bottom: .5em; right: .2em; font-size: 1.6em; color: orange;"
+            class="fa fa-exclamation">
+        </i>
 
-          <!-- Point badge -->
-          <span ng-if="button.badgeValue"
-              style="position: absolute; bottom: .5em; right: .2em;"
-              class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
-                  ><span
-                  >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
-          ></span>
+        <!-- Point badge -->
+        <span ng-if="button.badgeValue"
+            style="position: absolute; bottom: .5em; right: .2em;"
+            class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
+                ><span
+                >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
+        ></span>
       </a>
     </li>
   </script>
@@ -69,12 +78,14 @@
             <span class="icon-bar"></span>
           </button>
         </div>
+
         <!-- Navigation buttons -->
         <div class="collapse navbar-collapse" id="main-menu">
           <ul class="nav navbar-nav">
             <nav-button ng-repeat="button in navButtons.left">
             </nav-button>
           </ul>
+          
           <ul class="nav navbar-nav" style="float: right">
             <nav-button ng-repeat="button in navButtons.right | orderBy: 'right'">
             </nav-button>

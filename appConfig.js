@@ -134,8 +134,6 @@ module.exports = {
             'ui/group/GroupPage',
             'ui/account/AccountPage',
             'ui/video/VideoPage',
-            // contact pages:
-            'ui/contact_us/ContactPage'
         ]
     },
 
