@@ -107,14 +107,14 @@ module.exports = NoGapDef.component({
                         var oggRegExp = /^.*(\.ogg)$/;
 
                         if (typeof url == 'string') {
-                            if (url.match(youtubeRegExp)) {
-                                return mediaTypes['YOUTUBE'];
-                            } else if (url.match(mp4RegExp)) {
+                            if (url.match(mp4RegExp)) {
                                 return mediaTypes['MP4'];
                             } else if (url.match(webmRegExp)) {
                                 return mediaTypes['WEBM'];
                             } else if (url.match(oggRegExp)) {
                                 return mediaTypes['OGG'];
+                            } else if (url.match(youtubeRegExp)) {
+                                return mediaTypes['YOUTUBE'];
                             }
                         }
                         return mediaTypes['UNKNOWN'];
