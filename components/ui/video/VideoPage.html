@@ -10,6 +10,7 @@
             </div>
             <div class="col-6 col-sm-6 col-lg-6">
                 <h1>Current Time: {{currentTime * 1000 | date: 'mm:ss'}}</h1>
+                <h1>Duration: {{duration * 1000 | date: 'mm:ss'}}</h1>
             </div>
         </div>
     </div>
@@ -32,7 +33,7 @@
                     <li ng-repeat="tag in myTags" style="border: 2px solid #f38630;border-radius: 25px;margin: 5px">
                         <div style="width: 95%;margin: 0 auto">
                             <h4>Label: <em>{{tag.label}}</em></h4>
-                            <button ng-click="player.currentTime(tag.range[0])">Go to {{tag.range[0] * 1000 | date: 'mm:ss'}}</button>
+                            <button ng-click="player.currentTime(tag.range[0]); player.play()">Go to {{tag.range[0] * 1000 | date: 'mm:ss'}}</button>
                             <button ng-click="removeTag(tag)">Remove Tag</button>
                             <label for="tagLabel">Tag Label:</label>
                             <input id="tagLabel" type="text" ng-model="tag.label"/>

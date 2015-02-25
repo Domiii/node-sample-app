@@ -169,12 +169,26 @@ module.exports = NoGapDef.component({
                     };
 
                     /**
+                     * Player event listeners
+                     */
+                    var registerPlayerEventListeners = function() {
+                        var onDurationChange = function() {
+                            $scope.duration = $scope.player.duration();
+                        };
+
+                        if ($scope.player) {
+                            $scope.player.on('durationchange', onDurationChange);
+                        }
+                    };
+
+                    /**
                      * Player event handlers
                      */
                     var onReady = function() {
                         addKeyBindings();
                         startGetCurrentTime();
-                        //$scope.duration = $scope.player.duration();
+                        registerPlayerEventListeners();
+                        $scope.playerReady = true;
                     };
 
                     var onDispose = function() {
@@ -192,12 +206,12 @@ module.exports = NoGapDef.component({
                     //$scope.mediaType = mediaTypes['MP4'];
 
                     $scope.player = createPlayer($scope.sourceUrl);
+                    $scope.playerReady = false;
 
                     $scope.currentTime = 0;
+                    $scope.duration = 0;
                     $scope.flags = [];
                     $scope.myTags = [];
-
-                    $scope.player.ready(onReady);
 
                     /**
                      * Scope Functions
@@ -212,9 +226,12 @@ module.exports = NoGapDef.component({
                             }
                             onDispose();
                             $scope.player = createPlayer(newValue);
-                            $scope.player.ready(onReady);
+                            $scope.playerReady = false;
+                            $scope.currentTime = 0;
+                            $scope.duration = 0;
                             $scope.flags = [];
                             $scope.myTags = [];
+                            $scope.player.ready(onReady);
                         }
                     });
 
@@ -222,8 +239,10 @@ module.exports = NoGapDef.component({
                     * Flag / Tag handlers
                     */
                     $scope.addFlag = function() {
-                        $scope.flags.push($scope.currentTime);
-                        $scope.flags = _.unique($scope.flags);
+                        if ($scope.playerReady) {
+                            $scope.flags.push($scope.currentTime);
+                            $scope.flags = _.unique($scope.flags);
+                        }
                     };
 
                     $scope.removeFlag = function(value) {
@@ -231,11 +250,9 @@ module.exports = NoGapDef.component({
                     };
 
                     $scope.addTag = function() {
-                        $scope.duration = $scope.player.duration();
-                        //var startTime = ($scope.currentTime - 5) > 0 ? ($scope.currentTime - 5) : 0;
-                        //var endTime = ($scope.currentTime + 5) < $scope.duration ? ($scope.currentTime + 5) : $scope.duration;
-                        //$scope.myTags.push(new tag(startTime, endTime, ""));
-                        $scope.myTags.push(new tag($scope.currentTime, $scope.currentTime, ""));
+                        if ($scope.playerReady && $scope.duration) {
+                            $scope.myTags.push(new tag($scope.currentTime, $scope.currentTime, ""));
+                        }
                     };
 
                     $scope.removeTag = function(value) {
@@ -245,6 +262,8 @@ module.exports = NoGapDef.component({
                     $scope.$on('$destroy', function () {
                         onDispose();
                     });
+
+                    $scope.player.ready(onReady);
                 });
 
                 // register page
