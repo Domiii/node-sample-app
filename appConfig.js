@@ -133,14 +133,6 @@ module.exports = {
             'ui/home/HomePage',
             'ui/group/GroupPage',
             'ui/account/AccountPage',
-
-            // video pages:
-            'ui/video_page/VideoPage',
-
-            // contact pages:
-            'ui/contact_us/ContactPage'
-
-
         ]
     },
 };
