@@ -437,11 +437,6 @@ module.exports = NoGapDef.component({
                     },
 
                     //tabindex: navButtons.length+1,
-                    onClick: function() {
-                        if (this.page) {
-                            ThisComponent.gotoPage(this.page.name);
-                        }
-                    },
 
                     // urgent marker
                     urgentMarker: false,
@@ -456,6 +451,13 @@ module.exports = NoGapDef.component({
                     // badge value
                     badgeValue: 0,
                 };
+
+                // add default `onClick` function: gotoPage
+                if (page) {
+                    buttonDefaults.onClick = function() {
+                        ThisComponent.gotoPage(this.page.name);
+                    };
+                }
 
                 // merge defaults into buttonData
                 var button = squishy.mergeWithoutOverride(buttonData, buttonDefaults);

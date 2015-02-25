@@ -25,7 +25,7 @@ module.exports = NoGapDef.component({
             Assets: {
                 Files: {
                     string: {
-                        template: 'GroupIconUI.html'
+                        template: 'GroupIconElement.html'
                     }
                 },
                 AutoIncludes: {
