@@ -195,7 +195,8 @@ module.exports = NoGapDef.component({
                     'AccountPage',
                     'GroupPage',
                     'VideoPage',
-                    'ContactPage'
+                    'ContactPage',
+                    'AdminPage',
                 ],
 
                 mayActivate: function() {

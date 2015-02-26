@@ -134,6 +134,7 @@ module.exports = {
             'ui/home/HomePage',
             'ui/group/GroupPage',
             'ui/account/AccountPage',
+            'ui/admin/AdminPage',
 
             // video pages:
             'ui/video_page/VideoPage',
