@@ -1,0 +1,94 @@
+<div>
+
+	<label style="font-size:30px; position:relative; top:10px; ">&nbsp;Create Activity </label>
+	<hr></hr>
+	<div style="margin:10px;">
+		
+		<!-- Activity Title -->
+		<label style="font-size:20px;">Title</label>
+		<input type="text" ng-model="activityTitle" class="form-control" placeholder="title input"></input>
+		<br/>
+		
+		<!-- Activity Description -->
+		<label style="font-size:20px;">Description</label>
+		<textarea ng-model="activityDescription" class="form-control" rows="3" placeholder="description input"></textarea>
+		<br/>
+
+		<!-- Activity Start Time -->
+		<div class="form-group">
+	        <label for="from" style="font-size:20px;">Start time</label>
+	        
+	       	<div dropdown class="btn-group" ng-init="">
+	            <button type="button" class="btn btn-fancy dropdown-toggle"
+	                ng-disabled="">
+	                <!-- see: http://momentjs.com/ -->
+	                {{ util.moment(activity.startTime).format('llll') }}
+	                <i class='fa fa-caret-square-o-down'></i>
+	            </button>
+	            <ul class="dropdown-menu" role="menu" ng-click="$event.stopPropagation()">
+	                <li>
+	                    <div class="well well-sm"
+	                        style="display:inline-block">
+	                        <datepicker ng-model="activity._startTime" min-date="null" show-weeks="false" class=""
+	                        ></datepicker>
+	                        <timepicker ng-model="activity._startTime" hour-step="1" minute-step="15" show-meridian="false"
+	                            style="margin-left: auto; margin-right: auto;"
+	                        ></timepicker>
+	                    </div>
+	                </li>
+	            </ul>
+	        </div>
+	        <span style="color: #737373;">{{ util.moment(activity.startTime).fromNow() }}</span>
+
+	        <p class="help-block">
+	            Start time of this activity
+	        </p>
+	    </div>
+
+	    <!-- Activity End Time -->
+	    <!-- 以下 End Time 裡面的功能都還沒改過，還是 Start Time 的功能-->
+		<div class="form-group">
+	        <label for="from" style="font-size:20px;">End time</label>
+	        
+	       	<div dropdown class="btn-group" ng-init="">
+	            <button type="button" class="btn btn-fancy dropdown-toggle"
+	                ng-disabled="">
+	                <!-- see: http://momentjs.com/ -->
+	                {{ util.moment(activity.startTime).format('llll') }}
+	                <i class='fa fa-caret-square-o-down'></i>
+	            </button>
+	            <ul class="dropdown-menu" role="menu" ng-click="$event.stopPropagation()">
+	                <li>
+	                    <div class="well well-sm"
+	                        style="display:inline-block">
+	                        <datepicker ng-model="activity._startTime" min-date="null" show-weeks="false" class=""
+	                        ></datepicker>
+	                        <timepicker ng-model="activity._startTime" hour-step="1" minute-step="15" show-meridian="false"
+	                            style="margin-left: auto; margin-right: auto;"
+	                        ></timepicker>
+	                    </div>
+	                </li>
+	            </ul>
+	        </div>
+	        <span style="color: #737373;">{{ util.moment(activity.startTime).fromNow() }}</span>
+
+	        <p class="help-block">
+	            End time of this activity
+	        </p>
+	    </div>
+
+	    <br/>
+	    <div>
+	    	<a style="visibility:hidden;" class="btn btn-default col-xs-9" ng-click="">
+            <span></span></a>
+			<button type="button" class="btn btn-success" style="width:12%;">Create</button>
+			<button type="button" class="btn btn-warning" style="width:12%;">Cancel</button>
+		</div>
+
+
+
+
+	</div>
+
+</div>
+

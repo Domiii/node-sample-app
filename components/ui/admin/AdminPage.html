@@ -1,0 +1,12 @@
+<div class="fill container-page" ng-controller="adminCtrl">
+
+    <div style="float:left;">
+        <a ng-disabled="busyRole"
+            class="btn btn-lg btn-fancy" 
+            ng-click="createActivity(frame.article)">
+                <localize key="account.createActivity" />
+                <span ng-style="{visibility: busyRole && 'visible' || 'hidden'}"><i class="fa fa-spinner fa-spin"></i></span>
+        </a>
+    </div>
+
+</div>

@@ -46,6 +46,7 @@
         <i ng-if="button.iconClasses" class="{{ button.iconClasses }}"></i>
 
         <!-- Text -->
+
         <span ng-if="!!button.getText">{{ button.getText() }}</span>
 
         <!-- Orange Exclamation Mark -->
@@ -85,12 +86,13 @@
             <nav-button ng-repeat="button in navButtons.left">
             </nav-button>
           </ul>
-          
+
           <ul class="nav navbar-nav" style="float: right">
             <nav-button ng-repeat="button in navButtons.right | orderBy: 'right'">
             </nav-button>
           </ul>
             
+
         </div><!-- /.navbar-collapse -->
       </div>
     </nav>

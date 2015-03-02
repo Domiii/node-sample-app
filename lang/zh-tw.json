@@ -13,5 +13,10 @@
     "Login": "登入",
     "Logout": "登出",
 
-    "account.currentLanguage": "語言"
+    "page.Home": "首頁",
+    "page.Contact": "聯絡我們",
+    "page.Video": "影片欣賞",
+
+    "account.currentLanguage": "語言",
+    "account.createActivity" : "創建活動"
 }

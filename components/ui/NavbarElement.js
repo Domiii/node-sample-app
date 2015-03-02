@@ -13,7 +13,7 @@ module.exports = NoGapDef.component({
         Assets: {
             Files: {
                 string: {
-                    template: 'HomePage.html'
+                    template: 'NavbarElement.html'
                 }
             },
             AutoIncludes: {
@@ -52,8 +52,7 @@ module.exports = NoGapDef.component({
              */
             setupUI: function(UIMgr, app) {
                 // create Home controller
-                app.lazyController('homeCtrl', function($scope) {
-                    UIMgr.registerPageScope(ThisInstance, $scope);
+                app.lazyController('navbarElementCtrl', function($scope) {
                     
                     $scope.clickLogout = function() {
                         $scope.busy = true;
@@ -65,10 +64,13 @@ module.exports = NoGapDef.component({
                         .catch($scope.handleError.bind($scope));
                     };
                 });
-
+                
                 // register page
-                Instance.UIMgr.registerPage(this, 'Home', this.assets.template, {
-                    iconClasses: 'fa fa-home'
+                Instance.UIMgr.registerNavButton({
+                    template: this.assets.template,
+                    right: 3,
+                    templateName: 'navbarElement'
+                    //cssClasses: ''
                 });
             },
             

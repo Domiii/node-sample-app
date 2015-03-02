@@ -1,0 +1,48 @@
+<div class="fill container-page" ng-controller="videoCtrl">
+	Welcome back, {{currentUser.name}}!
+    <!--<div class="alert alert-warning fill">
+        TODO <span style="color: orange" class="fa fa-exclamation-triangle" />
+    </div>
+-->
+
+    <div id="self_comment_frame">   
+	    <div id="self_condition_botton">
+		    <button id="self_video_content" type="button" class="btn btn-default btn-lg" >內容</button>
+	     	<button id="self_video_movement" type="button" class="btn btn-default btn-lg" >台風</button>
+	    </div>
+	    <div id = "self_div_video_comment_rectangle" >
+		    <textarea id="self_content_input" >what do you think???</textarea>
+		    <p id="self_content_explain">(請對於這位講者的內容是否豐富與有趣給予建議，最低限度50字)</p>
+		    <button id="self_video_submit" type="button" class="btn btn-primary">送出</button>
+		    <!--<img alt="Comment" id="video_comment_rectangle" src="/assets/video_page/comment_rectangle.png" height="560" width="340"></img>-->
+
+	    </div>               
+	</div>
+	        
+
+
+    <video id="self_video_page_ShowIntroduce" class="video-js vjs-default-skin" controls
+        preload="auto" width="640" height="464" poster="http://video-js.zencoder.com/oceans-clip.png"
+        data-setup="{}">
+        <source src="http://video-js.zencoder.com/oceans-clip.mp4" type=video/mp4>
+        <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that <a href="http://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a></p>       	
+    </video>
+	     
+    <div id="self_div_video_introduce_rectangle">
+       <p id ="self_upload_time">發布日期：</p>
+       <p id ="self_video_introduce">影片介紹放在這邊......</p>
+       <!--<img alt="Introduce" id="video_introduce_rectangle" src="/assets/video_page/introduce_rectangle.png" height="140" width="640"></img>-->
+	</div>
+
+    
+    <!-- Logout button -->
+    
+    <!--
+    <div><center>
+        <a ng-disabled="busy"
+            class="btn btn-lg btn-fancy" 
+            ng-click="clickLogout()">
+            <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        </a>
+    </center></div>-->
+</div>

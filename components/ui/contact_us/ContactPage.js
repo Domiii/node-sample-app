@@ -13,7 +13,7 @@ module.exports = NoGapDef.component({
         Assets: {
             Files: {
                 string: {
-                    template: 'HomePage.html'
+                    template: 'ContactPage.html'
                 }
             },
             AutoIncludes: {
@@ -39,36 +39,22 @@ module.exports = NoGapDef.component({
     /**
      * Everything defined in `Client` lives only in the client (browser).
      */
-    Client: NoGapDef.defClient(function(Tools, Instance, Context) {
-        var ThisInstance;
-
+    Client: NoGapDef.defClient(function(Tools, Instance, Context) { 
         return {
-            __ctor: function() {
-                ThisInstance = this;
-            },
-
             /**
              * Prepares the home page controller.
              */
             setupUI: function(UIMgr, app) {
+                var This = this;
+                
                 // create Home controller
-                app.lazyController('homeCtrl', function($scope) {
-                    UIMgr.registerPageScope(ThisInstance, $scope);
+                app.lazyController('contactCtrl', ['$scope', function($scope) {
                     
-                    $scope.clickLogout = function() {
-                        $scope.busy = true;
-                        
-                        return ThisInstance.Instance.User.logout()
-                        .finally(function() {
-                            $scope.busy = false;
-                        })
-                        .catch($scope.handleError.bind($scope));
-                    };
-                });
+                }]);
 
-                // register page
-                Instance.UIMgr.registerPage(this, 'Home', this.assets.template, {
-                    iconClasses: 'fa fa-home'
+                // register page envelope-o
+                Instance.UIMgr.registerPage(this, 'Contact', this.assets.template, {
+                    iconClasses: 'fa fa-envelope-o'
                 });
             },
             

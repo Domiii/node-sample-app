@@ -1,0 +1,20 @@
+<div class="btn-group" ng-controller="navbarElementCtrl">
+  <button type="button" class="btn btn-default dropdown-toggle fa fa-user" data-toggle="dropdown" aria-expanded="false">
+     {{currentUser.name}}<span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu" role="menu">
+    <li><a ng-click="gotoPage('Account')" >Account</a></li>
+    <li><a href="#">Video Upload</a></li>
+    <li><a ng-click="gotoPage('Admin')">Administrator</a></li>
+    <li class="divider"></li>
+    <li>
+      <a ng-disabled="busy" ng-click="clickLogout()">
+        <!-- remove class="btn btn-lg btn-fancy" -->
+        <localize key="Logout" /> 
+        <span ng-style="{visibility: busy && 'visible' || 'hidden'}">
+          <i class="fa fa-cog fa-spin"></i>
+        </span>
+      </a>
+    </li>
+  </ul>
+</div>

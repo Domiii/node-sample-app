@@ -125,6 +125,7 @@ module.exports = {
             // core UI components:
             'ui/UIMgr',
             'ui/Main',
+            'ui/NavbarElement',
 
             // guest pages:
             'ui/guest/GuestPage',
@@ -133,6 +134,15 @@ module.exports = {
             'ui/home/HomePage',
             'ui/group/GroupPage',
             'ui/account/AccountPage',
+            'ui/admin/AdminPage',
+
+            // video pages:
+            'ui/video_page/VideoPage',
+
+            // contact pages:
+            'ui/contact_us/ContactPage'
+
+
         ]
     },
 };

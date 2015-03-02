@@ -67,6 +67,7 @@ module.exports = NoGapDef.component({
 
                     // our custom styles
                     'css/styles.css'
+
                 ]
             }
         },
@@ -184,7 +185,7 @@ module.exports = NoGapDef.component({
                 otherComponents: [
                     // core utilities
                     'FileUpload',
-                    
+                    'NavbarElement',
                     // Models
                     'Group',
                 ],
@@ -193,6 +194,9 @@ module.exports = NoGapDef.component({
                     'HomePage',
                     'AccountPage',
                     'GroupPage',
+                    'VideoPage',
+                    'ContactPage',
+                    'AdminPage',
                 ],
 
                 mayActivate: function() {
