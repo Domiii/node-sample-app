@@ -146,6 +146,9 @@ module.exports = {
             'ui/home/HomePage',
             'ui/group/GroupPage',
             'ui/account/AccountPage',
+
+            // other
+            'Arduino',
         ]
     },
 };

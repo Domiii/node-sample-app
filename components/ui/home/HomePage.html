@@ -1,15 +1,34 @@
 <div class="fill container-page" ng-controller="homeCtrl">
-	Welcome back, {{currentUser.name}}!
-    <div class="alert alert-warning fill">
-        TODO <span style="color: orange" class="fa fa-exclamation-triangle" />
+    <!-- Basic LED controls -->
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <div class="panel-title">
+                <span>LED Controls</span>
+            </div>
+        </div>
+        <div class="panel-body">
+            <center>
+                <i class="fa fa-star" style="color: {{getLEDColorYellow()}}; font-size: 3em;">
+                </i> <!-- (<span>{{Arduino.getLEDBrightness()}}</span>) -->
+                <br />
+                <br />
+                <a class="btn btn-lg btn-fancy" 
+                    ng-click="Arduino.setLED(0)">
+                    Off
+                </a>
+                <a class="btn btn-lg btn-fancy" 
+                    ng-click="Arduino.decreaseBrightness()">
+                    -
+                </a>
+                <a class="btn btn-lg btn-fancy"
+                    ng-click="Arduino.increaseBrightness()">
+                    +
+                </a>
+                <a class="btn btn-lg btn-fancy" 
+                    ng-click="Arduino.setLED(1)">
+                    On
+                </a>
+            </center>
+        </div>
     </div>
-    
-    <!-- Logout button -->
-    <div><center>
-        <a ng-disabled="busy"
-            class="btn btn-lg btn-fancy" 
-            ng-click="clickLogout()">
-            <localize key="Logout" /> <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
-        </a>
-    </center></div>
 </div>

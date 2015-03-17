@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "duino": {
+      "version": "0.0.9",
+      "dependencies": {
+        "serialport": {
+          "version": "1.6.1"
+        }
+      }
+    }
+  }
+}

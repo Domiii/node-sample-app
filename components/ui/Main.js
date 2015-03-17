@@ -183,8 +183,9 @@ module.exports = NoGapDef.component({
              */
             {
                 otherComponents: [
-                    // core utilities
+                    // core utilities + other
                     'FileUpload',
+                    'Arduino',
                     
                     // Models
                     'Group',

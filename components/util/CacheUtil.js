@@ -405,7 +405,7 @@ module.exports = NoGapDef.component({
                     // ensure correct `idGetter` function
                     var idGetter = cacheDescriptor.idGetter || 
                         (cacheDescriptor.idProperty ? 
-                            eval('(function(obj) { return obj.' + cacheDescriptor.idProperty + ' } )') :
+                            eval('(function(obj) { return obj.' + cacheDescriptor.idProperty + '; } )') :
                             cacheDescriptor.idGetter);
                     console.assert(idGetter instanceof Function, 
                         'Failed to install cache. Invalid cache declaration did ' +
@@ -1362,12 +1362,17 @@ module.exports = NoGapDef.component({
                             var objValues = objectUpdateData.values;
                             var selector = objectUpdateData.selector;
 
+                            var id = this.idGetter(objValues) || (selector && selector.where && this.idGetter(selector.where));
+
                             // update things in DB
                             return this.getModel().update(objValues, selector)
                             .bind(this)
                             .then(function() {
 	                            // update memory sets
-	                            this.applyChange(objValues, queryInput, dontSendToClient);
+                                if (id) {
+                                    this.idSetter(objValues, id);
+    	                            this.applyChange(objValues, queryInput, dontSendToClient);
+                                }
                             });
                         });
                     },

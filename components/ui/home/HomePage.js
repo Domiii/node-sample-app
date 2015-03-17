@@ -26,6 +26,12 @@ module.exports = NoGapDef.component({
         initHost: function() {
             
         },
+
+        Private: {
+            getClientCtorArguments: function() {
+                return [];
+            }
+        },
         
         /**
          * Host commands can be directly called by the client
@@ -43,7 +49,7 @@ module.exports = NoGapDef.component({
         var ThisComponent;
 
         return {
-            __ctor: function() {
+            __ctor: function(_brightness) {
                 ThisComponent = this;
             },
 
@@ -64,6 +70,13 @@ module.exports = NoGapDef.component({
                         })
                         .catch($scope.handleError.bind($scope));
                     };
+
+                    $scope.getLEDColorYellow = function() {
+                        var b = Instance.Arduino.getLEDBrightness();
+                        return '#' + b.toString(16) + b.toString(16) + '00';
+                    };
+
+                    $scope.Arduino = Instance.Arduino;
                 });
 
                 // register page
