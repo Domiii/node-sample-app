@@ -52,8 +52,8 @@ module.exports = NoGapDef.component({
              */
             Public: {
                 createAndJoin: function(groupName) {
-                	var user = this.Instance.User.currentUser;
-                	if (!this.Instance.User.isStudent()) {
+                    debugger;
+                    if (!this.Instance.Group.mayEditGroup()) {
                         return Promise.reject('error.invalid.permissions');
                     }
                 	else if (!(groupName = Shared.ValidationUtil.validateNameOrTitle(groupName))) {
@@ -61,26 +61,23 @@ module.exports = NoGapDef.component({
                 		return Promise.reject('invalid group name: ' + groupName);
                 	}
                 	else {
-                        // TODO: Check against activity schedules, if user actually may currently create group
                 		return this.Instance.Group.createAndJoinGroup(groupName);
                 	}
                 },
 
                 joinGroup: function(gid) {
-                	var user = this.Instance.User.currentUser;
-                	if (!user || user.role < Shared.User.UserRole.Student) return;
-
-                	// TODO: Check if user actually may currently join group
+                    if (!this.Instance.Group.mayEditGroup()) {
+                        return Promise.reject('error.invalid.permissions');
+                    }
 
                 	return this.Instance.Group.setCurrentUserGroup(gid);
                 },
 
 
                 leaveGroup: function(alsoDelete) {
-                	var user = this.Instance.User.currentUser;
-                	if (!user || user.role < Shared.User.UserRole.Student) return;
-
-                    // TODO: Check if user actually may currently leave group
+                    if (!this.Instance.Group.mayEditGroup()) {
+                        return Promise.reject('error.invalid.permissions');
+                    }
 
             		return this.Instance.Group.leaveGroup(alsoDelete);
                 }
@@ -144,11 +141,18 @@ module.exports = NoGapDef.component({
                     $scope.allGroups = Instance.Group.groups;
 
                 	// group-related variables
-                    $scope.newGroupName = '';
+                    ThisComponent.newGroupName = '';
+
+                    // whether groups may be changed or edited
+                    $scope.mayEditGroup = Instance.Group.mayEditGroup.bind(Instance.Group);
                     
                     // predicate to only allow groups that are not the user's own
                     $scope.otherGroupsFilter = function(group) {
                         return !$scope.currentGroupGid || group.gid != $scope.currentGroupGid;
+                    };
+
+                    $scope.uploadInputCreated = function() {
+                        Instance.UIActivityTracker.trackFileInputDialog($('#groupIconUploadInput'));
                     };
 
 
@@ -216,13 +220,13 @@ module.exports = NoGapDef.component({
                 		resetNotifications();
             			$scope.busy.ownGroup = true;
 
-                		ThisComponent.host.createAndJoin($scope.newGroupName)
+                		ThisComponent.host.createAndJoin(ThisComponent.newGroupName)
                         .finally(function() {
                             scope.busy.ownGroup = false;
                         })
                         .then(function(newGroup) {
-                            //scope.groupMessage = localizer.lookUp('group.createdGroup', Instance.Group.groups.map[].name);
-                            scope.groupMessage = localizer.lookUp('group.createdGroup', $scope.newGroupName);
+                            //scope.groupMessage = localizer.lookUp('group.createdGroup', Instance.Group.groups.byId[].name);
+                            scope.groupMessage = localizer.lookUp('group.createdGroup', ThisComponent.newGroupName);
                             scope.$digest();
                         })
                         .catch($scope.handleError.bind($scope));
@@ -233,7 +237,7 @@ module.exports = NoGapDef.component({
             			$scope.busy.ownGroup = true;
 
                         var gid = Instance.User.currentUser && Instance.User.currentUser.gid;
-                        var group = gid && Instance.Group.groups && Instance.Group.groups.map[gid];
+                        var group = gid && Instance.Group.groups && Instance.Group.groups.byId[gid];
                         var groupName = group && group.name;
 
                 		ThisComponent.host.leaveGroup(alsoDelete)
@@ -249,7 +253,7 @@ module.exports = NoGapDef.component({
 
                             // by changing the group name to be something different from before,
                             //   we trigger the validator to re-validate the current value.
-                            scope.newGroupName = (scope.newGroupName === null ? '' : null);
+                            ThisComponent.newGroupName = (ThisComponent.newGroupName === null ? '' : null);
                             scope.$digest();
                         })
                         .catch($scope.handleError.bind($scope));
@@ -279,7 +283,7 @@ module.exports = NoGapDef.component({
                     getText: function() {
                         var allGroups = Instance.Group.groups;
                         var user = Instance.User.currentUser;
-                        var currentGroup = user && user.gid && allGroups.map[user.gid]
+                        var currentGroup = user && user.gid && allGroups.byId[user.gid]
                         return currentGroup && currentGroup.name || localizer.lookUp('page.Group');
                     }
                 });
@@ -289,6 +293,7 @@ module.exports = NoGapDef.component({
             	// (re-)fetch dependent caches from Host
                 Instance.User.users.readObjects();
                 Instance.Group.groups.readObjects();
+                Instance.Activity.activities.readObjects();
 
                 //this.page.navButton.badgeValue += 100;    // test this
 

@@ -51,9 +51,20 @@ module.exports = NoGapDef.component({
                             }
                         },
                         members: {
+                            // compileObjectCreate: function(queryInput, ignoreAccessChecks) {
+                            // },
+
+                            // compileObjectUpdate: function(queryInput, ignoreAccessChecks) {
+                            // },
                         }
+                        }
+                },  // Caches
+
+                mayEditGroup: function() {
+                    //console.error([this.Instance.User.isStudent(), this.Instance.User.isStaff(), !Shared.AppConfig.getValue('groupsLocked')]);
+                    return this.Instance.User.isStudent() &&
+                        (this.Instance.User.isStaff() || !Shared.AppConfig.getValue('groupsLocked'));
                     }
-                },
             }
         };
     }),
@@ -219,30 +230,31 @@ module.exports = NoGapDef.component({
                     };
 
                     // insert Group in DB
-                    return this.groups.createObject(newGroupData)
+                    return this.groups.createObject(newGroupData, true)
+                    .bind(this)
                     .then(function(group) {
                         // set group icon file name
                         group.iconFile = group.getGroupIconIdentifier() + '.svg';
 
                         // generate random Group identicon (width = 5)
                         return Identicon.generate(5)
+                    	.bind(this)
 
-                        // write to file
                         .then(function(svg) {
                             // set group icon path
                             var fpath = group.getGroupIconFilePath();
 
-                            // console.log('writing Group identicon file: ' + fpath);
-
+                            // write to file
                             return SVGUtil.writeSvg(fpath, svg);
                         })
 
                         // update icon path in DB
                         .then(function() {
-                            return GroupModel.update(
-                                { iconFile: group.iconFile }, 
-                                { where: { gid: group.gid } }
-                            );
+                        	var update = {
+                        		gid: group.gid,
+                        		iconFile: group.iconFile
+                        	};
+                            return this.groups.updateObject(update, true);
                         })
 
                         .then(function() {
@@ -301,18 +313,25 @@ module.exports = NoGapDef.component({
                     var user = this.Instance.User.currentUser;
                     var group = user && user.group;
 
-                    if (!group) return Promise.reject('error.invalid.request');
+                    if (!group) {
+                        if (user && user.gid) {
+                            return Promise.reject(new Error('User has group, but group object was not available during icon upload'));
+                        }
+                        else {
+                            return Promise.reject('error.invalid.request');
+                        }
+                    }
 
                     // update icon info in DB
                     group.iconFile = fileName;
                     group.updatedAt = new Date();
-                    return GroupModel.update({ iconFile: fileName }, { where: { gid: group.gid } })
-                    .bind(this)
-                    .then(function() {
-                        // update succeeded -> send back to client
-                        console.log('applying change');
-                        this.Instance.Group.groups.applyChange(group);
-                    });
+
+                	var update = {
+                		gid: group.gid,
+                		iconFile: group.iconFile
+                	};
+
+                    return this.groups.updateObject(update, true);
                 }
             },
 
@@ -321,17 +340,23 @@ module.exports = NoGapDef.component({
                  * Delete icon file and update group in DB.
                  */
                 deleteIconFile: function() {
+                    if (!this.mayEditGroup()) {
+                        return Promise.reject('error.invalid.permissions');
+                    }
+
                     // TODO: Check for group alter permissions
                     if (!this.Shared.uploads) return;
 
-                    var uploadConfig = this.Shared.uploads.groupIcons;
                     var user = this.Instance.User.currentUser;
                     var group = user && user.group;
+
                     if (!group || !group.hasIcon()) {
                         return Promise.reject('error.invalid.request');
                     }
 
+                    var uploadConfig = this.Shared.uploads.groupIcons;
                     var filePath = group.getGroupIconFileName();
+
                     return uploadConfig.deleteFile(filePath)
                     .bind(this)
                     .catch(function(err) {

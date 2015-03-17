@@ -53,14 +53,14 @@ module.exports = NoGapDef.component({
              * Is called once on each component after all components have been created.
              */
             initHost: function(app, cfg) {
-                
+                var authPath = '/Auth';
+
                 express = require('express');
                 passport = require('passport');
                 FacebookStrategy = require('passport-facebook').Strategy;
                 authRouter = express.Router();
 
                 passport.serializeUser(function(user, done) {
-                    console.error(user);
                     done(null, user && user.uid || user);
                 });
 
@@ -72,27 +72,33 @@ module.exports = NoGapDef.component({
                     // });
                 });
 
+                
+                var facebookCallbackUrl = 'http://' + app.serverListenAddress + authPath + '/facebook/callback';
+
                 passport.use(new FacebookStrategy({
                     clientID: Shared.AppConfig.getValue('facebookAppID'),
                     clientSecret: Shared.AppConfig.getValue('facebookAppSecret'), 
-                    callbackURL: Shared.AppConfig.getValue('facebookCallbackUrl'),
+                    callbackURL: facebookCallbackUrl,
                     passReqToCallback : true
-                }, 
+                },
+
                 function(req, accessToken, refreshToken, profile, done) {
                     var Instance = req.Instance;
                     if (!Instance) {
                         res.redirect(301, '/');
                         return;
                     }
-    
+
                     process.nextTick(function() {
                         var authData = {
-                            userName: profile.name.givenName + ' ' + profile.name.familyName,
                             facebookID: profile.id,
-                            facebookToken: accessToken
+
+                            facebookToken: accessToken,
+                            userName: profile.name.givenName + ' ' + profile.name.familyName,
+                            preferredLocale: profile._json && profile._json.locale && profile._json.locale.replace('_', '-')
                         };
 
-                        Instance.User.tryLoginFacebook(authData)
+                        Instance.User.tryLogin(authData)
                         .then(function(user) {
                             done(null, user);
                         })
@@ -116,7 +122,7 @@ module.exports = NoGapDef.component({
  
                 SharedTools.ExpressRouters.before.use(passport.initialize());
                 //SharedTools.ExpressRouters.before.use(passport.session());
-                SharedTools.ExpressRouters.before.use('/auth', authRouter);
+                SharedTools.ExpressRouters.before.use(authPath, authRouter);
                     // function(req, res) {
                     //     res.writeHead(200, {'Content-Type': 'text/html'});
                     //     res.write('HELLO AUTH');s

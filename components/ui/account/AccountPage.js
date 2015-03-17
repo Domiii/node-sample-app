@@ -42,6 +42,7 @@ module.exports = NoGapDef.component({
                     var UserRole = Shared.User.UserRole;
 
                     // only staff members may set their display role
+                    // NOTE: We cannot use `isStaff` here, since it checks against the `displayRole`, which might currently be demoted
                     if (!user || user.role <= UserRole.Student) {
                         return Promise.reject('error.invalid.request');
                     }
@@ -51,7 +52,7 @@ module.exports = NoGapDef.component({
                     }
                     else {
                         // update user values
-                        return this.Instance.User.updateCurrentUserValues({displayRole: newRole});
+                        return this.Instance.User.updateUserValues(user, {displayRole: newRole});
                     }
                 },
 
@@ -63,7 +64,7 @@ module.exports = NoGapDef.component({
                     }
                     else {
                         // update user values
-                        return this.Instance.User.updateCurrentUserValues({locale: newLocale});
+                        return this.Instance.User.updateUserValues(user, {locale: newLocale});
                     }
                 }
             },
@@ -147,20 +148,6 @@ module.exports = NoGapDef.component({
                         })
                         .catch($scope.handleError.bind($scope));
                     };
-
-                    /**
-                     * Check if role was changed and update menu correspondingly.
-                     */
-                    $scope.updateRoleStatus = function(newRole) {
-                        var roleChanged = Instance.User.currentUser.role != newRole;
-                        $scope.roleChanged = roleChanged;
-
-                        // sync button mark?
-                        ThisComponent.page.navButton && ThisComponent.page.navButton.setUrgentMarker(roleChanged);
-                    };
-
-                    
-                    $scope.updateRoleStatus(Instance.User.currentUser.displayRole);
                 });
 
                 // register page
@@ -169,6 +156,10 @@ module.exports = NoGapDef.component({
                     right: 2,
                     getText: function() {
                         var user = Instance.User.currentUser;
+
+                        // TODO: This is a hack to update the "urgent marker" on demand...
+                        ThisComponent.page.navButton && ThisComponent.page.navButton.setUrgentMarker(user && user.role != user.displayRole);
+
                         return user && user.name;
                     }
                 });

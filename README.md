@@ -48,4 +48,4 @@ Done!
 
 # Other Tools
 * [Sublime Text](http://www.sublimetext.com/) [for editing and writing code]
-    * Tools -> Open Project -> `Presentations.sublime-project`
+    * Tools -> Open Project -> `app.sublime-project`

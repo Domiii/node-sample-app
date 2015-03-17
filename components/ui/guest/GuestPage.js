@@ -45,24 +45,11 @@ module.exports = NoGapDef.component({
 	                    return Promise.reject('error.login.auth');
 	                }
 
-	                var authData = {userName: userName};
-	                return this.Instance.User.tryLogin(authData, preferredLocale);
-
-	            },
-
-                tryLoginFacebook: function(userName, facebookID, facebookToken, preferredLocale) {
-                    userName = Shared.ValidationUtil.validateNameOrTitle(userName)
-                    if (!userName) {
-                        // tell client that login failed
-                        return Promise.reject('error.login.auth');
-                    }
-
                     var authData = {
                         userName: userName,
-                        facebookID: facebookID,
-                        facebookToken: facebookToken
+                        preferredLocale: preferredLocale
                     };
-                    return this.Instance.User.tryLoginFacebook(authData, preferredLocale);
+	                return this.Instance.User.tryLogin(authData);
 
 	            }
 	        },
@@ -102,8 +89,17 @@ module.exports = NoGapDef.component({
                         userName: ''
                     };
 
+                    // only show "name only" login form, if this is a local client
+                    $scope.showNameOnlyLoginForm = Context.clientIsLocal;
+
                     $scope.busy = false;
                     $scope.errorMessage = null;
+
+                    // 
+                    $scope.clickFacebookLogin = function() {
+                        $scope.busy = true;
+                        //window.location.assign("/auth/facebook");
+                    };
                    
                     // the function to be called when `login` is clicked
                     $scope.clickLogin = function() {

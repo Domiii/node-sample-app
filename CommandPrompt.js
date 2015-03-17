@@ -28,7 +28,7 @@ var su,
 su = switchUser = function(userName) {
     userName = userName || 'console';
 
-    return Instance.User.loginAs(userName);
+    return Instance.User.loginAs({userName: userName});
 };
 
 

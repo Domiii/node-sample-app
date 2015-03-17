@@ -87,6 +87,7 @@ module.exports = NoGapDef.component({
             setupUI: function(UIMgr, app) {
                 var This = this;
 
+                // validated-text-input directive
                 // for an example of a similar directive,
                 //   see: http://stackoverflow.com/questions/16546771/how-do-i-pass-multiple-attributes-into-an-angular-js-attribute-directive
                 app.lazyDirective('validatedTextInput', function($compile) { return {
@@ -105,13 +106,15 @@ module.exports = NoGapDef.component({
                     scope: {
                         validateModel: '=',
                         validateError: '=',
-                        validateResultInvalid: '&'
+                        validateResultInvalid: '&',
+                        validationFunction: '='
                     },
                     template: '<input type="text" ng-model="validateModel" />',
                     link: function($scope, $elem, $attrs) {
                         var revalidate = function() {
                             // validate input
-                            var isValid = !!This.validateNameOrTitle($scope.validateModel);
+                            var validationFunction = $scope.validationFunction || This.validateNameOrTitle.bind(This);
+                            var isValid = !!validationFunction($scope.validateModel);
                             $scope.validateError = (isValid ? false : 
                                 ($scope.validateResultInvalid ? $scope.$eval($scope.validateResultInvalid) : false));
                         };

@@ -1,6 +1,6 @@
 <div class="fill container-page" ng-controller="accountCtrl">
 
-    <div ng-if="roleChanged"
+    <div ng-if="currentUser.role != currentUser.displayRole"
         ng-click="clickDefaultDisplayRole()"
         class="alert alert-danger fill"
         >

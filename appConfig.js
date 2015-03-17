@@ -4,6 +4,13 @@
 module.exports = {
 
     // ########################################################################################################################
+    // Server + Hosting
+
+    'hosts': ['localhost'],
+
+
+
+    // ########################################################################################################################
     // Other customizable settings
 
     'defaultLocale': 'en',
@@ -18,27 +25,33 @@ module.exports = {
 
     'facebookAppID': '369298383249820',
     'facebookAppSecret': '8ab2043f222dc5db2065f1658151e071',
-    'facebookCallbackUrl': 'http://localhost:9123/auth/facebook/callback',
-
+    
 
     // ########################################################################################################################
-    // Mostly constant options
-
-    'title': 'BJT Online',
-
-    // folder containing files, accessible by clients
-    'publicFolder': 'pub',
-
-    'uploadFolder': 'uploads/',
+    // Developer options
 
     /**
      * Whether to open the command line
      */
     'console': 0,
 
-    'dev': 1,
+    'traceClient': 1,
 
-    'debug': 1,
+    'traceHost': 1,
+
+    /**
+     * Whether to enable the simulator
+     */
+    'simulatorEnabled': 1,
+
+
+    // ########################################################################################################################
+    // Mostly constant options
+
+    'title': 'Sample App',
+
+    // folder containing files, accessible by clients
+    'uploadFolder': 'uploads/',
 
     // Connection & transport parameters
     'httpd': {

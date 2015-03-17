@@ -19,17 +19,22 @@ module.exports = NoGapDef.component({
              */
             UserRole: squishy.makeEnum({
                 "Guest": 0,
-                "Student": 1,
-                "TA": 2,
-                "Instructor": 3,
+
+                /**
+                 * Normal user who did not finish registration yet
+                 */
+                "Unregistered": 1,
+                "Student": 2,
+                "TA": 3,
+                "Instructor": 4,
                 
                 /**
                  * This role is used for maintenance operations that may have severe consequences 
                  * and thus should not be executed by someone without understanding of how things work.
                  * However, by default, TAs and Instructors have this privilege level anyway because 
-                 8 there is no one else to help take care of things.
+                 * there is no one else to help take care of things.
                  */
-                "Admin": 4
+                "Admin": 5
             }),
 
             isStaff: function(roleOrUser) {
@@ -69,6 +74,20 @@ module.exports = NoGapDef.component({
                 Caches: {
                     users: {
                         idProperty: 'uid',
+
+                        hasHostMemorySet: 1,
+
+                        indices: [
+                            {
+                                unique: true,
+                                key: ['name']
+                            },
+                            {
+                                unique: true,
+                                key: ['facebookID']
+                            },
+                        ],
+
                         InstanceProto: {
                             getGroup: function() {
                                 return this.gid && 
@@ -82,6 +101,9 @@ module.exports = NoGapDef.component({
                                     value: users.Instance
                                 });
                             }
+                        },
+
+                        members: {
                         }
                     }
                 },
@@ -131,43 +153,37 @@ module.exports = NoGapDef.component({
                     displayRole: {type: Sequelize.INTEGER.UNSIGNED},
                     // debugMode: {type: Sequelize.INTEGER.UNSIGNED},
                     name: Sequelize.STRING(100),
-                    fullName: Sequelize.STRING(100),
+
+                    realName: Sequelize.STRING(100),
                     studentId: Sequelize.STRING(100),
                     locale: Sequelize.STRING(20),
                     lastIp: Sequelize.STRING(100),
                     facebookID: Sequelize.STRING(100),
                     facebookToken: Sequelize.STRING(100)
                 },{
-                    freezeTableName: true,
-                    tableName: 'bjt_user',
                     classMethods: {
                         onBeforeSync: function(models) {
+                            This.userAssociations = [{
+                                as: 'group',
+                                model: models.Group
+                            }];
+
                             // setup foreign key Association between user and group
                             models.User.belongsTo(models.Group,
                                 { foreignKey: 'gid', as: 'group', foreignKeyConstraint: true });
                             models.Group.hasMany(models.User,
                                 { foreignKey: 'gid', as: 'members', constraints: false });
-
-                            // all Associations to be included when fetching a user object from DB
-                            This.userAssociations = [
-                                // include group
-                                {
-                                    model: models.Group,
-                                    as: 'group'
-                                }
-                            ];
                         },
 
                         onAfterSync: function(models) {
-                            var tableName = models.User.getTableName();
+                            var tableName = this.getTableName();
                             return Promise.join(
                                 // create indices
-                                SequelizeUtil.createIndexIfNotExists(tableName, ['uid'], { indexOptions: 'UNIQUE'}),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['gid']),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['role']),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['name'], { indexOptions: 'UNIQUE'}),
-                                SequelizeUtil.createIndexIfNotExists(tableName, ['fullName']),
-                                SequelizeUtil.createIndexIfNotExists(tableName, ['studentId'], { indexOptions: 'UNIQUE'})
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['studentId'], { indexOptions: 'UNIQUE'}),
+                                SequelizeUtil.createIndexIfNotExists(tableName, ['facebookID'], { indexOptions: 'UNIQUE'})
                             );
                         }
                     }
@@ -178,9 +194,75 @@ module.exports = NoGapDef.component({
                 Caches: {
                     users: {
                         members: {
-                            compileReadObjectQuery: function(queryInput) {
+                            getObjectNow: function(queryInput, ignoreAccessCheck) {
+                                if (!this.hasMemorySet()) return null;
+
+                                if (!queryInput) return null;
+                                if (!ignoreAccessCheck && !this.Instance.User.isStaff()) {
+                                    // currently, this query cannot be remotely called by client
+                                    return null;
+                                }
+
+                                if (queryInput.uid) {
+                                    return this.byId[queryInput.uid];
+                                }
+                                else if (queryInput.facebookID) {
+                                    return this.indices.facebookID.get(queryInput.facebookID);
+                                }
+                                else if (queryInput.name) {
+                                    return this.indices.name.get(queryInput.name);
+                                }
+                                return null;
+                            },
+
+                            getObjectsNow: function() {
+                                if (!this.hasMemorySet()) return null;
+                            },
+
+                            /**
+                             * 
+                             */
+                            compileReadObjectQuery: function(queryInput, ignoreAccessCheck, sendToClient) {
+                                // Possible input: uid, name, facebookID
+                                if (!queryInput) {
+                                    return Promise.reject('error.invalid.request');
+                                }
+                                if (!ignoreAccessCheck && !this.Instance.User.isStaff()) {
+                                    // currently, this query cannot be remotely called by client
+                                    return Promise.reject('error.invalid.permissions');
+                                }
+
                                 var queryData = {
-                                    include: Shared.User.userAssociations
+                                    include: Shared.User.userAssociations,
+                                    where: {},
+
+                                    // ignore sensitive attributes
+                                    attributes: Shared.User.visibleUserAttributes
+                                };
+
+                                if (queryInput.uid) {
+                                    queryData.where.uid = queryInput.uid;
+                                }
+                                else if (queryInput.facebookID) {
+                                    queryData.where.facebookID = queryInput.facebookID;
+                                }
+                                else if (queryInput.name) {
+                                    queryData.where.name = queryInput.name;
+                                }
+                                else {
+                                    console.error('Invalid user query: ' + queryInput);
+                                    return Promise.reject('error.internal');
+                                }
+
+                                return queryData;
+                            },
+
+                            compileReadObjectsQuery: function(queryInput, ignoreAccessCheck, sendToClient) {
+                                var queryData = {
+                                    //include: Shared.User.userAssociations,
+
+                                    // ignore sensitive attributes
+                                    attributes: Shared.User.visibleUserAttributes
                                 };
                                 if (queryInput && queryInput.gid) {
                                     // queryInput may contain gid, if given
@@ -268,41 +350,48 @@ module.exports = NoGapDef.component({
                 },
 
                 /**
-                 *
-                 */
-                tryLogin: function(authData, preferredLocale) {
-                    // TODO: Real login credentials check
-                    var userName = authData.userName;
-                    return this.loginAs(userName, preferredLocale);
-                },
-
-                /**
                  * Query DB to validate user-provided credentials.
                  */
-                loginAs: function(userName, preferredLocale) {
+                tryLogin: function(authData) {
                     // query user from DB
-                    var where = {name: userName};
-                    return this.findUser(where)
+                    var queryInput;
+                    var isFacebookLogin = !!authData.facebookID;
+                    if (isFacebookLogin) {
+                        // login using FB
+                        queryInput = { facebookID: authData.facebookID };
+                    }
+                    else {
+                        // login using userName
+                        queryInput = { name: authData.userName };
+                    }
+
+                    return this.findUser(queryInput)
                     .bind(this)
                     .then(function(user) {
                         if (!user) {
                             // user does not exist
-                            //if (this.Context.clientIsLocal) {
-                                // localhost may create accounts
-                            if (true) {
-                                // during early development & testing
-                                // just create a new account if it does not exist
-                                return this.createAndLogin(userName, preferredLocale);
+                            if (this.Context.clientIsLocal) {
+                                // localhost may create accounts as Admin
+                                authData.role = UserRole.Admin;
+                                return this.createAndLogin(authData);
                             }
                             else {
                                 // check if this is the first User
-                                return Shared.User.UserModel.count()
+                                return UserModel.count()
+                                .bind(this)
                                 .then(function(count) {
                                     if (count == 0)  {
-                                        // this is the first user: Create & login
-                                        return this.createAndLogin(userName, preferredLocale);
+                                        // this is the first user: Create & login as Admin
+                                        authData.role = UserRole.Admin;
+                                        return this.createAndLogin(authData);
+                                    }
+                                    else if (isFacebookLogin) {
+                                        // standard user
+                                        authData.role = UserRole.Student;
+                                        return this.createAndLogin(authData);
                                     }
                                     else {
+                                        // invalid user credentials
                                         return Promise.reject('error.login.auth');
                                     }
                                 });
@@ -324,29 +413,33 @@ module.exports = NoGapDef.component({
                 /**
                  * Create new account and login right away
                  */
-                createAndLogin: function(userName, preferredLocale) {
+                createAndLogin: function(authData) {
+                    var preferredLocale = authData.preferredLocale;
+                    
                     if (!preferredLocale || !Shared.Localizer.Default.localeExists(preferredLocale)) {
                         // fall back to system default locale
                         preferredLocale = Shared.AppConfig.getValue('defaultLocale') || 'en';
                     }
                     var queryData = {
-                        name: userName, 
-                        role: UserRole.Admin, 
-                        displayRole: UserRole.Admin,
+                        name: authData.userName, 
+                        role: authData.role, 
+                        displayRole: authData.role,
 
                         //locale: Shared.AppConfig.getValue('defaultLocale') || 'en'
-                        locale: preferredLocale
+                        locale: preferredLocale,
+
+                        facebookID: authData.facebookID,
+                        facebookToken: authData.facebookToken
                     };
 
-                    return UserModel.create(queryData)
-                    .then(SequelizeUtil.getValuesFromRows)
+                    return this.users.createObject(queryData, true)
                     .bind(this)
                     .then(function(user) {
                         // set current user data
                         this.setCurrentUser(user);
 
                         // fire creation and login events
-                        this.events.create.fire();
+                        this.events.create.fire(user);
                         this.onLogin(user, true);
 
                         return user;
@@ -368,8 +461,8 @@ module.exports = NoGapDef.component({
 
                     if (uid) {
                         // resume session
-                        var where = {uid: uid};
-                        return this.findUser(where)
+                        var queryInput = {uid: uid};
+                        return this.findUser(queryInput)
                         .bind(this)
                         .then(function(user) {
                             if (!user) {
@@ -402,108 +495,16 @@ module.exports = NoGapDef.component({
 
 
                 // #################################################################################
-                // Facebook login + signup
-
-                tryLoginFacebook: function(authData, preferredLocale) {
-     
-                    return this.loginAsFacebook(authData, preferredLocale);
-                },
-
-                loginAsFacebook: function(authData, preferredLocale) {
-                    // query user from DB
-                    var queryData = {name: authData.userName, facebookID: authData.facebookID};
-                    return this.findUser(queryData)
-                    .bind(this)
-                    .then(function(user) {
-                        if (!user) {
-                            // user does not exist
-                            //if (this.Context.clientIsLocal) {
-                                // localhost may create accounts
-                            if (true) {
-                                // during early development & testing
-                                // just create a new account if it does not exist
-                                return this.createAndLoginFacebook(authData, preferredLocale);
-                            }
-                            else {
-                                // check if this is the first User
-                                return Shared.User.UserModel.count()
-                                .then(function(count) {
-                                    if (count == 0)  {
-                                        // this is the first user: Create & login
-                                        return this.createAndLoginFacebook(authData, preferredLocale);
-                                    }
-                                    else {
-                                        return Promise.reject('error.login.auth');
-                                    }
-                                });
-                            }
-                        }
-                        else {
-                            // set current user data
-                            this.setCurrentUser(user);
-
-                            // fire login event
-                            this.onLogin(user, true);
-
-                            // notify caller
-                            return user;
-                        }
-                    });                    
-
-                },
-
-                createAndLoginFacebook: function(authData, preferredLocale) {
-                    if (!preferredLocale || !Shared.Localizer.Default.localeExists(preferredLocale)) {
-                        // fall back to system default locale
-                        preferredLocale = Shared.AppConfig.getValue('defaultLocale') || 'en';
-                    }
-                    var queryData = {
-                        name: authData.userName, 
-                        role: UserRole.Admin, 
-                        displayRole: UserRole.Admin,
-
-                        //locale: Shared.AppConfig.getValue('defaultLocale') || 'en'
-                        locale: preferredLocale,
-
-                        facebookID: authData.facebookID,
-                        facebookToken: authData.facebookToken
-                    };
-
-                    return UserModel.create(queryData)
-                    .then(SequelizeUtil.getValuesFromRows)
-                    .bind(this)
-                    .then(function(user) {
-                        // set current user data
-                        this.setCurrentUser(user);
-
-                        // fire creation and login events
-                        this.events.create.fire();
-                        this.onLogin(user, true);
-                        console.error(user);
-                        return user;
-                    });
-                },
-
-
-                // #################################################################################
                 // Misc getters & setters
 
                 /**
                  * TODO: Go through cache instead
                  */
                 findUser: function(where) {
-                    var query = {
-                        where: where,
-                        include: this.Shared.userAssociations
-                    };
-
                     // query user from DB
-                    return UserModel.find(query)
+                    return this.users.getObject(where, true, false, true)
                     .bind(this)
-                    .then(function(_user) {
-                        var user = SequelizeUtil.getValuesFromRows(_user, query.include);
-                        // TODO: Also wrap user object
-
+                    .then(function(user) {
                         if (user && user.group) {
                             // wrap Group object
                             user.group = this.Instance.Group.groups.wrapObject(user.group);
@@ -516,27 +517,21 @@ module.exports = NoGapDef.component({
                 /**
                  * Change current user values.
                  */
-                updateCurrentUserValues: function(values) {
-                    if (!this.currentUser) {
+                updateUserValues: function(user, values) {
+                    if (!user) {
                         return Promise.reject('error.invalid.request');
                     }
 
-                    var uid = this.currentUser.uid;
-
                     // update DB
-                    return UserModel.update(values, { where: {uid: uid } })
-                    .bind(this)
-                    .then(function() {
-                        // update current user values
-                        for (var propName in values) {
-                            if (!values.hasOwnProperty(propName)) continue;
+                    values.uid = user.uid;
+                    return this.users.updateObject(values, true);
+                },
 
-                            this.currentUser[propName] = values[propName];
-                        }
-
-                        // send updated user object to client
-                        this.users.applyChange(this.currentUser);
-                    });
+                /**
+                 * Only override current in-memory user context, don't do anything else
+                 */
+                setCurrentUserContext: function(user) {
+                    this.currentUser = user;
                 },
 
 
@@ -548,7 +543,7 @@ module.exports = NoGapDef.component({
 
                     var sess = this.Context.session;
 
-                    // update memory cache
+                    // update currentUser and session data
                     var uid = sess.uid = user && user.uid;
                     this.currentUser = user;
 
@@ -570,19 +565,11 @@ module.exports = NoGapDef.component({
                     }
 
                     var gid = (group && group.gid) || null;
-                    var values = {gid: gid};
-                    var selector = { where: {uid: this.currentUser.uid} };
-                    return Shared.User.Model.update(values, selector)
+                    return this.updateUserValues(this.currentUser, {gid: gid})
                     .bind(this)
                     .then(function() {
-                        // user changed or left group:
-
-                        // update current user object properties
-                        this.currentUser.gid = gid;
+                    	// set group
                         this.currentUser.group = group;
-
-                        // send updated user object to client and caller
-                        this.users.applyChange(this.currentUser);
                         return group;
                     });
                 },
@@ -679,11 +666,16 @@ module.exports = NoGapDef.component({
                 users: {
                     updated: function(newValues) {
                         if (ThisComponent.currentUser) {
-                            // check if currentUser was changed
+                            // check if currentUser has changed
                             for (var i = 0; i < newValues.length; ++i) {
                                 var userDelta = newValues[i];
-                                if (userDelta.uid == ThisComponent.currentUser.uid) {
+                                if (userDelta.uid == ThisComponent.currentUser.uid &&
+                                    (!ThisComponent._currentUserCopy ||
+                                        !angular.equals(ThisComponent._currentUserCopy, ThisComponent.currentUser))) {
+                                    // currentUser actually changed
                                     ThisComponent.onCurrentUserChanged();
+                                    ThisComponent._currentUserCopy = _.clone(ThisComponent.currentUser);
+                                    break;
                                 }
                             };
                         }
@@ -699,17 +691,6 @@ module.exports = NoGapDef.component({
              * Called when currentUser or values of currentUser changed.
              */
             onCurrentUserChanged: function() {
-                // update locale (it might have changed)
-                if (Instance.Localizer.Default) {
-                    var locale = this.getCurrentLocale();
-
-                    // update localizer locale
-                    Instance.Localizer.Default.setLocale(locale);
-
-                    // update moment locale, too (for date + time formatting)
-                    moment.locale(locale);
-                }
-
                 // notify main
                 this.Instance.Main.onUserPrivChanged();
 

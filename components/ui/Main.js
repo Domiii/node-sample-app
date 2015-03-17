@@ -83,8 +83,7 @@ module.exports = NoGapDef.component({
             },
 
             onNewClient: function() {
-                // enable these components on the client initially
-                // NOTE: This causes other operations which might not finish instantly!
+                // enable these core components on the client initially
                 return this.Tools.requestClientComponents(
                     // Core stuff
                     'AppConfig', 'User',
@@ -98,11 +97,13 @@ module.exports = NoGapDef.component({
                     'SimpleBooleanExpressions',
 
                     // base UI elements
-                    'UIMgr', 'Main')
+                    'UIMgr', 'Main'
+                )
+                .bind(this)
                 .then(function() {
                     // send default localizer to client
                     this.client.setDefaultLocalizer(Shared.Localizer.Default);
-                }.bind(this));
+                });
             },
 
             /**
@@ -285,10 +286,18 @@ module.exports = NoGapDef.component({
                         if (attrs.key) {
                             // actual translation
                             var key = attrs.key;
-                            var args = $scope.$eval(attrs.args);
                             var locale = attrs.locale;
                             
-                            $scope.translation = localizer.lookUpLocale(locale, key, args);
+                            if (attrs.args) {
+                                $scope.bindAttrExpression(attrs, 'args', function(newArgs) {
+                                    if (!newArgs) return;
+
+                                    $scope.translation = localizer.lookUpLocale(locale, key, newArgs);                                
+                                });
+                            }
+                            else {
+                                $scope.translation = localizer.lookUpLocale(locale, key);
+                            }
                         }
                         else {
                             $scope.translation = '';
@@ -307,7 +316,6 @@ module.exports = NoGapDef.component({
                 return {
                     restrict: 'AE',
                     replace: true,
-                    transclude: true,
                     template: '<span localized="1">{{translation}}</span>',
                     link: linkFun,
                     scope: true
@@ -551,7 +559,42 @@ module.exports = NoGapDef.component({
                          */
                         createSelectionState: function(idProperty) {
                             return new Instance.Main.SelectionState(idProperty);
+                        },
+
+                        getCountdown: function(date) {
+                            var now = new Date();
+                            var date = moment(date).toDate();
+                            var millis = date.getTime() - now.getTime();
+
+                            return this.formatTimeSpan(millis);
+                        },
+
+                        formatTimeSpan: function(millis) {
+                            /**
+                             * @see http://stackoverflow.com/a/8043056/2228771
+                             */
+                            var padOneZero = function(n) {
+                                return n > 9 ? "" + n : "0" + n;
+                            };
+
+                            var days = Math.floor(millis / (1000 * 60 * 60 * 24));
+                            millis -=  days * (1000 * 60 * 60 * 24);
+
+                            var hours = Math.floor(millis / (1000 * 60 * 60));
+                            millis -= hours * (1000 * 60 * 60);
+
+                            var mins = Math.floor(millis / (1000 * 60));
+                            millis -= mins * (1000 * 60);
+
+                            var seconds = Math.floor(millis / (1000));
+                            millis -= seconds * (1000);
+
+                            var inDaySpan = '';
+                            if (hours + mins + seconds > 0) {
+                                inDaySpan = ' ' + padOneZero(hours) + ':' + padOneZero(mins) + ':' + padOneZero(seconds);
                         }
+                            return days + Instance.Localizer.Default.lookUp('time.span.days') + ' ' + inDaySpan;
+                        },
                     };
                 }]);
 
@@ -580,10 +623,6 @@ module.exports = NoGapDef.component({
 
                 setDefaultLocalizer: function(localizerData) {
                     Instance.Localizer.Default = Instance.Localizer.createLocalizer(localizerData);
-
-                    // set user locale
-                    var locale = Instance.User.getCurrentLocale();
-                    Instance.Localizer.Default.setLocale(locale);
                 },
 
                 updateTemplateData: function() {
@@ -606,6 +645,14 @@ module.exports = NoGapDef.component({
                  */
                 onUserPrivChanged: function() {
                     Instance.UIMgr.ready(function() {
+                        // update user locale
+                        var locale = Instance.User.getCurrentLocale();
+                        Instance.Localizer.Default.setLocale(locale);
+
+                        // update moment locale, too (for date + time formatting)
+                        moment.locale(locale);
+
+
                         this.updateTemplateData();
 
                         // tell UIMgr module to re-check which buttons are enabled and

@@ -35,7 +35,7 @@ module.exports = NoGapDef.component({
                         var msg = '[' + userName + '] - ' + msg;
                         userLogger.log(msg);
                     }
-                }
+                },
             }
         };
     }),
@@ -123,7 +123,7 @@ module.exports = NoGapDef.component({
                         else {
                             message += ' - ' + sqlMessage;
                         }
-                        console.error(message = this.Tools.formatUserMessage((message && (message + ' - ') || '')));
+                        console.error(message = this.Tools.formatUserMessage((message && (message + ': ') || '')));
                         console.error(err.stack);
                         parent && parent.stack && console.error(parent.stack);
                     }
@@ -135,6 +135,15 @@ module.exports = NoGapDef.component({
 
                     return errString;
                 },
+
+                warn: function(msg) {
+                    var userName = this.getUserIdentifier();
+
+                    var msg = '[' + userName + '] - ' + msg;
+
+                    console.warn(msg);
+                    userLogger.warn(msg);
+                }
             },
 
             /**

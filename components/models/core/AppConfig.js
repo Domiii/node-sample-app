@@ -13,6 +13,34 @@ var SequelizeUtil = require(libRoot + 'SequelizeUtil');
 module.exports = NoGapDef.component({
     Base: NoGapDef.defBase(function(SharedTools, Shared, SharedContext) {
         return {
+            getValue: function(key) {
+                return this.defaultConfig[key];
+            },
+
+            Private: {
+                Caches: {
+                    appConfig: {
+                        idProperty: 'configId',
+
+                        hasHostMemorySet: 1,
+
+                        members: {
+                            getObjectNow: function(queryInput, ignoreAccessCheck) {
+                                if (isNaN(queryInput)) {
+                                    return Promise.reject('error.invalid.request');
+                                }
+
+                                return this.indices.byId[queryInput];
+                            },
+
+                            compileReadObjectsQuery: function(queryInput, ignoreAccessCheck) {
+                                // all config options
+                                if (!queryInput) return {};
+                            }
+                        }
+                    }
+                }
+            }
         };
     }),
 
@@ -20,11 +48,37 @@ module.exports = NoGapDef.component({
     	var ConfigModel;
         var UserRole;
 
-        var appConfigJs;
 
         return {
             __ctor: function () {
-                appConfigJs = require(appRoot + 'appConfig');
+                this.defaultConfig = require(appRoot + 'appConfig');
+            },
+
+            initModel: function() {
+                /**
+                 * AppConfig model definition: Contains all run-time editable configuration options.
+                 */
+                return sequelize.define('AppConfig', {
+                    configId: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
+
+                    name: Sequelize.STRING(100),
+
+                    groupsLocked: {type: Sequelize.INTEGER.UNSIGNED},
+                },{
+                    freezeTableName: true,
+                    tableName: 'bjt_user',
+                    classMethods: {
+                        onBeforeSync: function(models) {
+                        },
+
+                        onAfterSync: function(models) {
+                            // var tableName = models.User.getTableName();
+                            // return Promise.join(
+                            //     // create indices
+                            // );
+                        }
+                    }
+                });
             },
 
             initHost: function(app, cfg) {
@@ -33,18 +87,57 @@ module.exports = NoGapDef.component({
                 /**
                  * Min privilege level required to use the system.
                  */
-                appConfigJs.minAccessRole = Shared.User.UserRole.Student;
-                this.defaultConfig = appConfigJs;
+                this.defaultConfig.minAccessRoleId = Shared.User.UserRole[this.defaultConfig.minAccessRole] || Shared.User.UserRole.Student;
 
+                // update tracing settings
+                Shared.Libs.ComponentTools.TraceCfg.enabled = this.getValue('traceHost');
             },
 
-            /**
-             * Get default config value.
-             */
-            getValue: function(key) {
-                return this.defaultConfig[key];
-            },
+            // updateValue: function(key, value) {
+            //     if (!runtimeEditableConfig[key]) {
+            //         console.error('tried to update invalid config key: ' + key);
+            //         return Promise.reject('error.invalid.key');
+            //     }
 
+            //     // update in-memory cache
+            //     runtimeEditableConfig[key] = value;
+
+            //     // update DB
+            //     var values = {};
+            //     values[key] = value;
+
+            //     var selector = {
+            //         where: {configId: runtimeEditableConfig.configId}
+            //     };
+            //     return this.Model.update(values, selector);
+            // },
+
+            // initModel: function() {
+            //     var AppConfig;
+            
+            //     /**
+            //      * Activity model definition.
+            //      */
+            //     return AppConfig = sequelize.define('AppConfig', {
+            //      configId: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
+            //         name: Sequelize.STRING(100),
+            //         settings: Sequelize.TEXT
+            //     },{
+            //         freezeTableName: true,
+            //         tableName: 'bjt_config',
+            //         classMethods: {
+            //             onBeforeSync: function(models) {
+            //             },
+
+            //             onAfterSync: function(models) {
+            //                 return Promise.join(
+            //                     // create indices
+            //                     SequelizeUtil.createIndexIfNotExists('bjt_config', ['configId'])
+            //                 );
+            //             }
+            //         }
+            //     });
+            // },
 
             // ################################################################################################################
             // Config instance
@@ -53,39 +146,65 @@ module.exports = NoGapDef.component({
                 __ctor: function () {
                 },
 
+                getClientCtorArguments: function() {
+                    return [this.Shared.defaultConfig]
+                },
+
                 onNewClient: function() {
                 },
 
                 onClientBootstrap: function() {
-                    this.client.setConfig(this.Shared.defaultConfig);
+                    // if (!runtimeEditableConfig) {
+                    //     // get or create runtimeEditableConfig
+                    //     return this.findAll({
+                    //         limit: 1
+                    //     })
+                    //     .then(function(configs) {
+                    //         if (!configs || !configs.length) {
+                    //             // no config in DB:
+                    //             // insert default config into DB
+                    //             return this.create(runtimeEditableDefaultConfig);
+                    //         }
+                    //         else {
+                    //             return configs[0];
+                    //         }
+                    //     })
+                    //     .then(function(_runtimeEditableConfig) {
+                    //         // got the config
+                    //         runtimeEditableConfig = _runtimeEditableConfig;
+                    //     });
+                    // }
                 }
             },
 
             Public: {
+                updateConfigValue: function(key, value) {
+                    if (!this.Instance.User.isStaff()) {
+                        return Promise.reject('error.invalid.permissions');
+                    }
+
+                    return this.Shared.updateValue(key, value);
+                }
             },
         };
     }),
 
     Client: NoGapDef.defClient(function(Tools, Instance, Context) {
         return {
-            __ctor: function () {
+            __ctor: function (defaultConfig) {
+                this.defaultConfig = defaultConfig;
+
+                Instance.Libs.ComponentTools.TraceCfg.enabled = defaultConfig.traceClient;
             },
+
+            initClient: function() {
+            }
 
         	// setValue: function(name, value) {
         	// 	this.cfg[name] = value;
         	// 	// TODO: Store value in DB
         	// 	//this.host.setValue(name, value);
         	// },
-
-        	getValue: function(name) {
-        		return this.cfg[name];
-        	},
-
-            Public: {
-            	setConfig: function(cfg) {
-            		this.cfg = cfg;
-            	},
-            }
         };
     })
 });

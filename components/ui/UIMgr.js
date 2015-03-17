@@ -637,6 +637,10 @@ module.exports = NoGapDef.component({
                 return activePage;
             },
 
+            getActivePageArgs: function() {
+                return activePage && activePage.component.getPageArgs() || '';
+            },
+
             refreshActivePage: function() {
                 activePage && activePage.component.activatePage(null, true);
             },
@@ -652,6 +656,11 @@ module.exports = NoGapDef.component({
              * Recursively get full path of page in page tree.
              */
             getPageBasePath: function(currentPage) {
+                currentPage = currentPage || activePage;
+                if (!currentPage) {
+                    return '/';
+                }
+
                 var parentPage = currentPage.parent;
                 var path = '/' + currentPage.name;
                 if (parentPage) {

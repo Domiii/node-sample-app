@@ -64,7 +64,7 @@ module.exports = NoGapDef.component({
              * 
              */
             initHost: function(expressApp, cfg) {
-                publicFolder = cfg.publicFolder;
+                publicFolder = Shared.AppConfig.getValue('publicFolder');
 
                 // get some modules we will need for the server
                 multer = require('multer');     // multipart file handling

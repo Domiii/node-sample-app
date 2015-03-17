@@ -1,5 +1,5 @@
 <div style="display: inline-block; width: {{sizeStrings[size]}}; height: {{sizeStrings[size]}}; line-height: {{sizeStrings[size]}}; overflow: hidden; vertical-align: middle; background-color: #fffff2; border-radius: {{ sizes[size]/8 }}px;"
-	code="group = allGroups.map[gid]; groupIconSrc = getGroupIconSrc(gid);"
+	code="group = allGroups.byId[gid]; groupIconSrc = getGroupIconSrc(gid);"
 	ng-show="!!group">
 	<!-- see: http://stackoverflow.com/questions/28293924/the-story-of-a-divs-unaccounted-space -->
 	<center

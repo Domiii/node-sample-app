@@ -77,7 +77,7 @@ module.exports = NoGapDef.component({
                         $scope.FileUpload = Instance.FileUpload;
                         $scope.getGroupIconSrc = function() {
                             var gid = $scope.gid;
-                            var group = gid && $scope.allGroups.map[gid];
+                            var group = gid && $scope.allGroups.byId[gid];
                             return group && group.getGroupIconSrc();
                         };
 

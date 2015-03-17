@@ -3,12 +3,21 @@
  */
 "use strict";
 
+
+// ####################################################################################
+// Node core settings
+
+// fix stacktrace length
+// see: http://stackoverflow.com/questions/7697038/more-than-10-lines-in-a-node-js-stack-error
+Error.stackTraceLimit = 20;
+//Error.stackTraceLimit = Infinity;
+
+
 // ####################################################################################
 // Basic libraries
 
 // all kinds of Node modules that we need
 var express = require('express');
-var domain = require('domain');
 var util = require('util');
 var path = require('path');
 var url = require('url');
@@ -16,26 +25,18 @@ var favicon = require('static-favicon');
 var fs = require('fs');
 var process = require('process');
 
-var httpProxy = require('http-proxy');
-
 // get Promise library from Sequelize to support stacktraces properly
 var Sequelize = require('sequelize');
 
 // load config
 var appConfig = require('./appConfig');
 
-// load NoGap
-var NoGapLoader = require('nogap').Loader;
-
 
 // ####################################################################################
 // shared JS libraries (used on Host and Client), located in the public folder
 
-var publicFolder = appConfig.nogap.publicFolder || './pub';
-if (!publicFolder.endsWith('/') && !publicFolder.endsWith('\\')) {
-    publicFolder += '/';
-}
-appConfig.nogap.publicFolder = publicFolder;    // corrected version
+// determine publicFolder
+var publicFolder = appConfig.publicFolder = './pub/';
 
 // Lo-Dash brings all kinds of utilities for array and object manipulation
 // see: http://stackoverflow.com/questions/13789618/differences-between-lodash-and-underscore
@@ -47,6 +48,9 @@ GLOBAL.moment = require(publicFolder + 'lib/moment');
 // squishy adds some additional tools (e.g. makeEnum, createClass and more)
 // squishy adds itself to the global namespace
 require(publicFolder + 'js/squishy/squishy');
+
+// Use an improved `toString` method.
+Object.prototype.toString = function() { return squishy.objToString(this, true, 3); };
 
 
 // ####################################################################################
@@ -75,17 +79,9 @@ var Setup = require('./lib/Setup');
 
 console.log('Starting server. Please wait...');
 
-
-// Use an improved `toString` method.
-Object.prototype.toString = function() { return squishy.objToString(this, true, 3); };
-
-// fix stacktrace length
-// see: http://stackoverflow.com/questions/7697038/more-than-10-lines-in-a-node-js-stack-error
-Error.stackTraceLimit = 14;
-//Error.stackTraceLimit = Infinity;
-
 // only use one Promise library the entire application
 GLOBAL.Promise = Sequelize.Promise || require('bluebird');
+
 // setup long stack traces
 GLOBAL.Promise.longStackTraces();
 
@@ -93,6 +89,14 @@ GLOBAL.Promise.longStackTraces();
 var app = express();
 app.set('title', appConfig.title);
 
+// setup server configuration
+var hosts = appConfig.hosts || ['0.0.0.0'];
+console.assert(hosts instanceof Array && hosts.length > 0, 'Invalid `hosts` configuration: ' + hosts);
+
+var port = appConfig.httpd.port || 8080;
+
+// we are guessing that the first address is the external address
+var externalListenAddress = app.externalListenAddress = hosts[0] + ':' + port;
 
 // // for debugging purposes:
 // app.use(function(req, res, next) {
@@ -138,7 +142,9 @@ Promise.resolve()
     sessionManager.installSessionManager(app);
 })
 .then(function() {
-    // load all of the application's NoGap components
+    // load NoGap
+    var NoGapLoader = require('nogap').Loader;
+
     // Note: This also calls `initHost` on every component
     return NoGapLoader.start(app, appConfig.nogap);
 })
@@ -163,7 +169,10 @@ Promise.resolve()
         console.error('Error during request (' + status + '): ' + (err.stack || new Error(err).stack));
         
         res.writeHead(status, {'Content-Type': 'text/html'});
-        if (appConfig.dev) {
+
+        var clientAddress = req.connection.remoteAddress;
+        var isLocalConnection = clientAddress === 'localhost' || clientAddress === '127.0.0.1' || clientAddress === '::1';
+        if (isLocalConnection) {
             res.write('<pre>' + err.stack + '</pre>');
         }
         else {
@@ -174,32 +183,23 @@ Promise.resolve()
     
 
     // start configuring DB and setting up tables
-    return SequelizeUtil.initModels();
+    return SequelizeUtil.initModels(Shared);
 })
 
 /**
  * Start HTTP server.
  */
 .then(function startApp() {
-    appConfig.httpd.port = appConfig.httpd.port || 8080;
-
-    // use domains to avoid shutdowns
-    // see: http://clock.co.uk/blog/preventing-http-raise-hangup-error-on-destroyed-socket-write-from-crashing-your-nodejs-server
-    //var serverDomain = domain.create()
-
-    app.serverInstance = app.listen(appConfig.httpd.port, function() {
-        console.log(appConfig.title + ' is now up and running at port ' + app.serverInstance.address().port);
-
-        if (appConfig.console) {
-            // start command line interpreter
-            var startCommandPrompt = require('./CommandPrompt.js');
-            startCommandPrompt(Shared);
-        }
-    }).on('error', function (err) {
-        // HTTP listen socket got closed unexpectedly...
-        // TODO: Try to re-start instead of closing things down!
-        process.exit(new Error('Server connection error: ' + err.stack || err));
-    });
+    for (var i = 0; i < hosts.length; ++i) {
+        var host = hosts[i];
+        app.listen(port, host, function() {
+            console.log(appConfig.title + ' is online at: ' + (host + ':' + port));
+        }).on('error', function (err) {
+            // HTTP listen socket got closed unexpectedly...
+            // TODO: Try to re-start
+            console.error(new Error('Server connection error (on ' + (host + ':' + port) + '): ' + (err.stack || err.message || err)).stack);
+        });
+    }
 })
 .catch(function(err) {
     process.exit(new Error('Initialization failed - ' + err.stack));
