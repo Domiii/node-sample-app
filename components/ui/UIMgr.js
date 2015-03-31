@@ -297,11 +297,6 @@ module.exports = NoGapDef.component({
 
                     // add the view to the body
                     // this will also bootstrap our angular app
-                    window.onload = function() {
-                        //document.body.innerHTML += this.assets.template;
-                    }.bind(this);
-
-                    console.log(this.assets.template.length);
                     document.body.innerHTML += this.assets.template;
                 }.bind(this));
             },
@@ -614,19 +609,21 @@ module.exports = NoGapDef.component({
             // Events triggered directly by the server (or by client)
 
             /**
-             * User privs changed ->
-             * Re-validate which buttons and pages to show.
+             * Current user changed changed ->
+             * Re-validate which buttons and pages to show, and refresh entire app.
              */
-            revalidatePagePermissions: function() {
+            onCurrentUserChanged: function(privsChanged) {
                 if (!clientInitialized) return;
 
                 // Revalidate whether user is still allowed to see the current page or buttons
-                for (var i = 0; i < pageGroups.length; ++i) {
-                    var group = pageGroups[i];
-                    for (var j = 0; j < group.pages.length; ++j) {
-                        var page = group.pages[j];
-                        if (page.navButton) {
-                            page.navButton.show = group.mayActivate();
+                if (privsChanged) {
+                    for (var i = 0; i < pageGroups.length; ++i) {
+                        var group = pageGroups[i];
+                        for (var j = 0; j < group.pages.length; ++j) {
+                            var page = group.pages[j];
+                            if (page.navButton) {
+                                page.navButton.show = group.mayActivate();
+                            }
                         }
                     }
                 }
@@ -975,6 +972,9 @@ module.exports = NoGapDef.component({
 
                         // same page -> Only update address arguments
                         //Instance.UIMgr.updateAddressBar(newPage.component, true);
+                        
+                        // invalidate view
+                        invalidateView();
                     }
                     else {
                         if (activePage && activePage !== newPage) {
@@ -994,7 +994,7 @@ module.exports = NoGapDef.component({
                             this._onPageActivate(newPage, pageArgs)
                             .bind(this)
                             .then(function() {
-                                // invalid view
+                                // invalidate view
                                 invalidateView();
 
                                 // fire event

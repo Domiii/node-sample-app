@@ -96,7 +96,8 @@ module.exports = NoGapDef.component({
                 function(req, accessToken, refreshToken, profile, done) {
                     var Instance = req.Instance;
                     if (!Instance) {
-                        res.redirect(301, '/');
+						// could not look-up instance, meaning, the user has not bootstrapped first
+                        done(new Error('Please refresh.'), null);
                         return;
                     }
 

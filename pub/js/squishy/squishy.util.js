@@ -645,12 +645,15 @@ squishy.getCurrentTimeMillisHighRes = (function() {
             return time[0] * 1e3 + time[1] * 1e-6;
         };
     }
-    else if (performance) {
+    else if (typeof(window) !== 'undefined') {
+        var performance = window.performance || window.webkitPerformance || window.msPerformance || window.mozPerformance;
+        if (performance) {
         if (performance.now) {
             return function() { return performance.now(); };
         }
         else if (performance.webkitNow) {
             return function() { return performance.webkitNow(); };
+            }
         }
     }
 

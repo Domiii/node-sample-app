@@ -139,7 +139,7 @@ module.exports = NoGapDef.component({
                     };
 
                     $scope.isProfileLocked = Instance.AppConfig.getValue('profileLocked');
-                    $scope.isRegistrationLocked = Instance.AppConfig.getValue('registrationLocked');
+                    $scope.isRegistrationLocked = Instance.User.isRegistrationLocked(user);
                     $scope.isRegistration = Instance.User.currentUser.role < this.DefaultRole;
 
                     //$scope.isLocked = ($scope.isRegistration && $scope.isRegistrationLocked) ||

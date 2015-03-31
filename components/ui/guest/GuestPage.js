@@ -90,7 +90,9 @@ module.exports = NoGapDef.component({
                     };
 
                     // only show "name only" login form, if this is a local client
-                    $scope.showNameOnlyLoginForm = Context.clientIsLocal;
+                    $scope.isRegistrationLocked = Instance.User.isRegistrationLocked();
+                    $scope.isLoginLocked = Instance.User.isLoginLocked();
+                    $scope.showDevLoginForm = Context.clientIsLocal || Instance.AppConfig.getValue('dev');
 
                     $scope.busy = false;
                     $scope.errorMessage = null;

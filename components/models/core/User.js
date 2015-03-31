@@ -115,6 +115,29 @@ module.exports = NoGapDef.component({
                 getCurrentUserName: function() {
                     return this.currentUser ? this.currentUser.name : null;
                 },
+
+                /**
+                 * Check if given user or user-role may currently login.
+                 */
+                isLoginLocked: function(userOrRole) {
+                    var locked = !this.Context.clientIsLocal && Shared.AppConfig.getValue('loginLocked');
+                    if (!userOrRole) {
+                        return locked;
+                    }
+
+                    var role = userOrRole.role || userOrRole;
+                    return locked && role <= this.Shared.UserRole.Student;
+                },
+
+                isRegistrationLocked: function(userOrRole) {
+                    var locked = !this.Context.clientIsLocal && Shared.AppConfig.getValue('registrationLocked');
+                    if (!userOrRole) {
+                        return locked;
+                    }
+
+                    var role = userOrRole.role || userOrRole;
+                    return locked && role <= this.Shared.UserRole.Student;
+                },
             }
         };
     }),
@@ -381,7 +404,8 @@ module.exports = NoGapDef.component({
                     .then(function(user) {
                         if (!user) {
                             // user does not exist
-                            if (this.Context.clientIsLocal) {
+                            if (this.Context.clientIsLocal || Shared.AppConfig.getValue('dev')) {
+                                // dev mode always allows admin accounts
                                 // localhost may create Admin accounts
                                 authData.role = UserRole.Admin;
                                 return this.createAndLogin(authData);
@@ -409,6 +433,10 @@ module.exports = NoGapDef.component({
                             }
                         }
                         else {
+                            if (this.isLoginLocked(user)) {
+                                return Promise.reject('error.login.locked');
+                            }
+                            
                             // set current user data
                             this.setCurrentUser(user);
 
@@ -424,12 +452,15 @@ module.exports = NoGapDef.component({
                  * Create new account and login right away
                  */
                 createAndLogin: function(authData) {
-                    if (Shared.AppConfig.getValue('registrationLocked')) {
-                        return Promise.reject('error.login.registrationLocked');
-                    }
-
                     var preferredLocale = authData.preferredLocale;
                     var role = authData.role || UserRole.Student;
+
+                    if (this.isRegistrationLocked(role)) {
+                        return Promise.reject('error.login.registrationLocked');
+                    }
+                    if (this.isLoginLocked(role)) {
+                        return Promise.reject('error.login.locked');
+                    }
                     
                     if (!preferredLocale || !Shared.Localizer.Default.localeExists(preferredLocale)) {
                         // fall back to system default locale
@@ -490,10 +521,14 @@ module.exports = NoGapDef.component({
                     var sess = this.Context.session;
                     var uid = sess.uid;
 
-                    var loginAsGuest = function()  {
-                        this.setCurrentUser(null);
-                        return null;
-                    };
+                    var loginAs = function(user) {
+                        if (this.isLoginLocked(user)) {
+                            // if we reject the request, bootstrapping won't succeed
+                            //return Promise.reject('error.login.locked');
+                            user = null;
+                        }
+                        this.setCurrentUser(user);
+                    }.bind(this);
 
                     if (uid) {
                         // resume session
@@ -507,28 +542,30 @@ module.exports = NoGapDef.component({
                                 this.Tools.warn('Unable to login user from session -- invalid or expired session');
                                 delete sess.uid;    // delete uid from session
 
-                                return loginAsGuest.call(this);
+                                return loginAs(null) || null;
                             }
                             else {
-                                // set current user data
-                                this.setCurrentUser(user);
+                                // do the login game
+                                var rejection = loginAs(user);
+                                if (rejection) {
+                                    return rejection;
+                                }
 
-                                // fire login event
-                             //    return this.onLogin(user, false)
-                            	// .return(user);
+                                // NOTE: We don't want to wait for all login events to finish here, since that can potentially take a while
+                                //      If it finishes a bit later, things will (usually) work just fine.
                                 this.onLogin(user, false);
                                 return user;
                             }
                         })
                         .catch(function(err) {
                             this.Tools.handleError(err);
-                            return loginAsGuest.call(this);
+                            return loginAs(null) || null;
                         });
                     }
                     else {
                         // no session to resume:
                         // login as guest
-                        return loginAsGuest.call(this);
+                        return loginAs(null) || null;
                     }
                 },
 
@@ -544,7 +581,7 @@ module.exports = NoGapDef.component({
                     return this.users.getObject(where, true, false, true)
                     .bind(this)
                     .then(function(user) {
-                        console.assert(!user || user === this.users.getObjectNowById(user.uid));
+                        console.assert(!user || user === this.users.getObjectNowById(user.uid), 'INTERNAL ERROR - users cache inconsistent');
                         return user;
                     });
                 },
@@ -718,13 +755,11 @@ module.exports = NoGapDef.component({
                 // create new copy
                 ThisComponent._currentUserCopy = _.clone(ThisComponent.currentUser);
                 
-                if (privsChanged) {
-                    // notify main
-                    this.Instance.Main.onUserPrivChanged();
-                }
+                // notify main
+                this.Instance.Main.onCurrentUserChanged(privsChanged);
 
                 // raise event
-                return this.events.updatedCurrentUser.fire(this.currentUser);
+                return this.events.updatedCurrentUser.fire(this.currentUser, privsChanged);
             },
 
             Public: {

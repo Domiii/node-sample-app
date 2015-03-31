@@ -78,8 +78,6 @@ module.exports = NoGapDef.component({
         
         Private: {
             __ctor: function() {
-                // this.Instance.User.events.login.addListener(this.onUserPrivChanged.bind(this));
-                // this.Instance.User.events.logout.addListener(this.onUserPrivChanged.bind(this));
             },
 
             onNewClient: function() {
@@ -123,20 +121,12 @@ module.exports = NoGapDef.component({
                 // explicitely install caches
                 this.Instance.CacheUtil.initCaches();
 
-                // check if User cache is present
+                // sanity check: Make sure, User cache is present
                 console.assert(this.Instance.User.users, 'INTERNAL ERROR: Cache installation failed.');
 
                 // resume user session
                 return this.Instance.User.resumeSession();
             },
-
-
-            /**
-             * This method is fired on every privilege level change and on every page refresh
-             */
-            onUserPrivChanged: function() {
-                this.client.onUserPrivChanged();
-            }
         }
     };}),
     
@@ -472,7 +462,6 @@ module.exports = NoGapDef.component({
             },
 
             events: {
-                userPrivChanged: squishy.createEvent()
             },
 
             /**
@@ -629,7 +618,7 @@ module.exports = NoGapDef.component({
                 // init UIMgr
                 Instance.UIMgr.initUIMgr(
                     // title
-                    'BJT Online',
+                    Instance.AppConfig.getValue('title'),
                     angularApp 
                 )
                 .then(function() {
@@ -665,7 +654,7 @@ module.exports = NoGapDef.component({
                 /**
                  * Invalidate certain aspects of the view
                  */
-                onUserPrivChanged: function() {
+                onCurrentUserChanged: function(privsChanged) {
                     Instance.UIMgr.ready(function() {
                         // update user locale
                         var locale = Instance.User.getCurrentLocale();
@@ -677,12 +666,11 @@ module.exports = NoGapDef.component({
 
                         this.updateTemplateData();
 
+                        if (privsChanged) {
                         // tell UIMgr module to re-check which buttons are enabled and
                         //  whether the user may stay on current page etc.
-                        Instance.UIMgr.revalidatePagePermissions();
-
-                        // fire event
-                        this.events.userPrivChanged.fire();
+                            Instance.UIMgr.onCurrentUserChanged();
+                        }
                     }.bind(this));
                 }
             }

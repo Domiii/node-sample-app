@@ -4,7 +4,7 @@
 module.exports = {
 
     // ########################################################################################################################
-    // Application status
+    // User feature locks
 
 
     /**
@@ -17,22 +17,31 @@ module.exports = {
      */
     'profileLocked': 0,
 
-    // ########################################################################################################################
-    // Server + Hosting
-
-    'hosts': ['localhost', '0.0.0.0'],
+    'loginLocked': 0,
 
 
 
     // ########################################################################################################################
-    // Other customizable settings
-
-    'defaultLocale': 'en',
+    // Developer feature locks
 
     /**
-     * If # ratings is below this number, do not display the rating results yet.
+     * Whether developer options are enabled
      */
-    'minItemRatingsToDisplay': 1,
+    'dev': 0,
+
+    // ########################################################################################################################
+    // Host + networking settings
+
+    'hosts': ['localhost'],
+
+
+    // ########################################################################################################################
+    // Other misc settings
+
+    /**
+     * Use this locale on the server and for new clients who did not submit a preference
+     */
+    'defaultLocale': 'en',
 
     // ########################################################################################################################
     // Facebook settings
@@ -50,8 +59,14 @@ module.exports = {
      */
     'console': 0,
 
+    /**
+     * Whether to trace RPC calls on Client side
+     */
     'traceClient': 1,
 
+    /**
+     * Whether to trace RPC calls on Host side
+     */
     'traceHost': 1,
 
 
