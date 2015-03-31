@@ -1,3 +1,4 @@
+
 /**
  * All utilities required to verify and manage users.
  */
@@ -89,11 +90,6 @@ module.exports = NoGapDef.component({
                         ],
 
                         InstanceProto: {
-                            getGroup: function() {
-                                return this.gid && 
-                                    (this.group ||
-                                    this.Instance.Group.groups.getObjectNow(this.gid));
-                            },
                             initialize: function(users) {
                                 // add Instance object to new User instance
                                 Object.defineProperty(this, 'Instance', {
@@ -125,7 +121,6 @@ module.exports = NoGapDef.component({
 
     Host: NoGapDef.defHost(function(SharedTools, Shared, SharedContext) {
         var UserModel;
-        var GroupModel;
         var UserRole;
 
         // TODO: Updates
@@ -144,42 +139,39 @@ module.exports = NoGapDef.component({
                  */
                 return UserModel = sequelize.define('User', {
                     uid: {type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true},
-                    gid: {
-                    	type: Sequelize.INTEGER.UNSIGNED,
-                    	references: GroupModel,
-                    	referencesKey: 'gid'
+                    role: {
+                        type: Sequelize.INTEGER.UNSIGNED,
+                        allowNull: false
                     },
-                    role: {type: Sequelize.INTEGER.UNSIGNED},
-                    displayRole: {type: Sequelize.INTEGER.UNSIGNED},
+                    displayRole: {
+                        type: Sequelize.INTEGER.UNSIGNED,
+                        allowNull: false
+                    },
                     // debugMode: {type: Sequelize.INTEGER.UNSIGNED},
-                    name: Sequelize.STRING(100),
-
+                    name: {
+                        type: Sequelize.STRING(100),
+                        allowNull: false
+                    },
                     realName: Sequelize.STRING(100),
+                    email: Sequelize.STRING(100),
                     studentId: Sequelize.STRING(100),
                     locale: Sequelize.STRING(20),
                     lastIp: Sequelize.STRING(100),
                     facebookID: Sequelize.STRING(100),
-                    facebookToken: Sequelize.STRING(100)
+                    facebookToken: Sequelize.STRING(100),
+
+                    lastNotificationCheck: Sequelize.DATE
                 },{
+                    freezeTableName: true,
+                    tableName: 'bjt_user',
                     classMethods: {
                         onBeforeSync: function(models) {
-                            This.userAssociations = [{
-                                as: 'group',
-                                model: models.Group
-                            }];
-
-                            // setup foreign key Association between user and group
-                            models.User.belongsTo(models.Group,
-                                { foreignKey: 'gid', as: 'group', foreignKeyConstraint: true });
-                            models.Group.hasMany(models.User,
-                                { foreignKey: 'gid', as: 'members', constraints: false });
                         },
 
                         onAfterSync: function(models) {
                             var tableName = this.getTableName();
                             return Promise.join(
                                 // create indices
-                                SequelizeUtil.createIndexIfNotExists(tableName, ['gid']),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['role']),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['name'], { indexOptions: 'UNIQUE'}),
                                 SequelizeUtil.createIndexIfNotExists(tableName, ['studentId'], { indexOptions: 'UNIQUE'}),
@@ -215,8 +207,23 @@ module.exports = NoGapDef.component({
                                 return null;
                             },
 
-                            getObjectsNow: function() {
+                            getObjectsNow: function(queryInput) {
                                 if (!this.hasMemorySet()) return null;
+                                if (queryInput && queryInput.uid instanceof Array) {
+                                    var result = [];
+                                    for (var i = 0; i < queryInput.uid.length; ++i) {
+                                        var uid = queryInput.uid[i];
+                                        var user = this.byId[uid];
+                                        if (user) {
+                                            result.push(user);
+                                        }
+                                    };
+                                    return result
+                                }
+                                return this.list;
+                            },
+
+                            onWrapObject: function(user) {
                             },
 
                             /**
@@ -225,7 +232,7 @@ module.exports = NoGapDef.component({
                             compileReadObjectQuery: function(queryInput, ignoreAccessCheck, sendToClient) {
                                 // Possible input: uid, name, facebookID
                                 if (!queryInput) {
-                                    return Promise.reject('error.invalid.request');
+                                    return Promise.reject(makeError('error.invalid.request'));
                                 }
                                 if (!ignoreAccessCheck && !this.Instance.User.isStaff()) {
                                     // currently, this query cannot be remotely called by client
@@ -250,8 +257,7 @@ module.exports = NoGapDef.component({
                                     queryData.where.name = queryInput.name;
                                 }
                                 else {
-                                    console.error('Invalid user query: ' + queryInput);
-                                    return Promise.reject('error.internal');
+                                    return Promise.reject(makeError('error.invalid.request'));
                                 }
 
                                 return queryData;
@@ -264,10 +270,9 @@ module.exports = NoGapDef.component({
                                     // ignore sensitive attributes
                                     attributes: Shared.User.visibleUserAttributes
                                 };
-                                if (queryInput && queryInput.gid) {
-                                    // queryInput may contain gid, if given
+                                if (queryInput && queryInput.uid instanceof Array) {
                                     queryData.where = {
-                                        gid: queryInput.gid
+                                        uid: queryInput.uid
                                     };
                                 }
                                 return queryData;
@@ -280,6 +285,7 @@ module.exports = NoGapDef.component({
                 __ctor: function () {
                     this.events = {
                         create: new squishy.createEvent(),
+                        profileUpdated: new squishy.createEvent(),
                         login: new squishy.createEvent(),
                         logout: new squishy.createEvent(),
                     };
@@ -328,14 +334,16 @@ module.exports = NoGapDef.component({
                     var sess = this.Context.session;
                     //sess.regenerate(function() {
                         // fire login event
-                        this.events.login.fire();
-
+                    return this.events.login.fire()
+                    .bind(this)
+                    .then(function() {
                         if (isLogin) {
                             this.Tools.log('has logged in.');
                         }
                         else {
-                            this.Tools.log('visits page.');
+                            this.Tools.log('has come back (resumed session).');
                         }
+                    });
                     //}.bind(this));
                 },
 
@@ -344,9 +352,12 @@ module.exports = NoGapDef.component({
                  */
                 onLogout: function(){
                     // fire logout event
-                    this.events.logout.fire();
-
-                    console.log('User `' + this.currentUser.name + '` logged out.');
+                    var userName = this.currentUser && this.currentUser.name;
+                    return this.events.logout.fire()
+                    .bind(this)
+                    .then(function() {
+                        console.log('User `' + userName + '` logged out.');
+                    });
                 },
 
                 /**
@@ -371,7 +382,7 @@ module.exports = NoGapDef.component({
                         if (!user) {
                             // user does not exist
                             if (this.Context.clientIsLocal) {
-                                // localhost may create accounts as Admin
+                                // localhost may create Admin accounts
                                 authData.role = UserRole.Admin;
                                 return this.createAndLogin(authData);
                             }
@@ -387,7 +398,7 @@ module.exports = NoGapDef.component({
                                     }
                                     else if (isFacebookLogin) {
                                         // standard user
-                                        authData.role = UserRole.Student;
+                                        authData.role = UserRole.Unregistered;
                                         return this.createAndLogin(authData);
                                     }
                                     else {
@@ -402,28 +413,33 @@ module.exports = NoGapDef.component({
                             this.setCurrentUser(user);
 
                             // fire login event
-                            this.onLogin(user, true);
-
-                            // notify caller
-                            return user;
+                            return this.onLogin(user, true)
+                            .return(user);
                         }
                     });
                 },
+
 
                 /**
                  * Create new account and login right away
                  */
                 createAndLogin: function(authData) {
+                    if (Shared.AppConfig.getValue('registrationLocked')) {
+                        return Promise.reject('error.login.registrationLocked');
+                    }
+
                     var preferredLocale = authData.preferredLocale;
+                    var role = authData.role || UserRole.Student;
                     
                     if (!preferredLocale || !Shared.Localizer.Default.localeExists(preferredLocale)) {
                         // fall back to system default locale
                         preferredLocale = Shared.AppConfig.getValue('defaultLocale') || 'en';
                     }
+
                     var queryData = {
                         name: authData.userName, 
-                        role: authData.role, 
-                        displayRole: authData.role,
+                        role: role, 
+                        displayRole: role,
 
                         //locale: Shared.AppConfig.getValue('defaultLocale') || 'en'
                         locale: preferredLocale,
@@ -439,10 +455,30 @@ module.exports = NoGapDef.component({
                         this.setCurrentUser(user);
 
                         // fire creation and login events
-                        this.events.create.fire(user);
-                        this.onLogin(user, true);
+                        return this.events.create.fire(user)
+                        .bind(this)
+                        .then(function() {
+                            if (role >= UserRole.Student) {
+                                return this.events.profileUpdated.fire(user, null);
+                            }
+                        })
+                        .then(function() {
+                            return this.onLogin(user, true);
+                        })
+                        .return(user);
+                    });
+                },
 
-                        return user;
+                updateProfile: function(user, newUserData, isRegistering) {
+                    var oldUserData = {};
+                    for (var prop in newUserData) {
+                        oldUserData[prop] = user[prop];
+                    }
+
+                    return this.updateUserValues(user, newUserData)
+                    .bind(this)
+                    .then(function() {
+                        return this.events.profileUpdated.fire(user, oldUserData);
                     });
                 },
 
@@ -466,8 +502,9 @@ module.exports = NoGapDef.component({
                         .bind(this)
                         .then(function(user) {
                             if (!user) {
+                                //console.error('hasdasdi');
                                 // could not login -> Invalid session (or rather, User could not be found)
-                                console.warn('Unable to login user from session -- invalid or expired session');
+                                this.Tools.warn('Unable to login user from session -- invalid or expired session');
                                 delete sess.uid;    // delete uid from session
 
                                 return loginAsGuest.call(this);
@@ -477,8 +514,10 @@ module.exports = NoGapDef.component({
                                 this.setCurrentUser(user);
 
                                 // fire login event
+                             //    return this.onLogin(user, false)
+                            	// .return(user);
                                 this.onLogin(user, false);
-                            	return user;
+                                return user;
                             }
                         })
                         .catch(function(err) {
@@ -505,10 +544,7 @@ module.exports = NoGapDef.component({
                     return this.users.getObject(where, true, false, true)
                     .bind(this)
                     .then(function(user) {
-                        if (user && user.group) {
-                            // wrap Group object
-                            user.group = this.Instance.Group.groups.wrapObject(user.group);
-                        }
+                        console.assert(!user || user === this.users.getObjectNowById(user.uid));
                         return user;
                     });
                 },
@@ -519,7 +555,7 @@ module.exports = NoGapDef.component({
                  */
                 updateUserValues: function(user, values) {
                     if (!user) {
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
 
                     // update DB
@@ -549,29 +585,12 @@ module.exports = NoGapDef.component({
 
                     if (user) {
                         // send user object to client
-                        this.users.applyChange(user);
+                        this.users.applyChanges([user]);
+                        if (this.users.getObjectNowById(uid) !== this.currentUser) {
+                            this.Tools.handleError(new Error('Cache error'));
+                        };
                     }
                     this.client.setCurrentUser(uid);
-                },
-
-
-                /**
-                 * Change currentUser's group.
-                 */
-                setCurrentUserGroup: function(group) {
-                    if (!this.currentUser) {
-                        console.error('Tried to call `setCurrentUserGroup` without `currentUser` set.');
-                        return Promise.reject('error.internal');
-                    }
-
-                    var gid = (group && group.gid) || null;
-                    return this.updateUserValues(this.currentUser, {gid: gid})
-                    .bind(this)
-                    .then(function() {
-                    	// set group
-                        this.currentUser.group = group;
-                        return group;
-                    });
                 },
             },
 
@@ -669,13 +688,18 @@ module.exports = NoGapDef.component({
                             // check if currentUser has changed
                             for (var i = 0; i < newValues.length; ++i) {
                                 var userDelta = newValues[i];
-                                if (userDelta.uid == ThisComponent.currentUser.uid &&
-                                    (!ThisComponent._currentUserCopy ||
-                                        !angular.equals(ThisComponent._currentUserCopy, ThisComponent.currentUser))) {
-                                    // currentUser actually changed
-                                    ThisComponent.onCurrentUserChanged();
-                                    ThisComponent._currentUserCopy = _.clone(ThisComponent.currentUser);
-                                    break;
+                                var orig = ThisComponent.currentUser;
+                                if (userDelta.uid == ThisComponent.currentUser.uid) {
+                                    var copy = ThisComponent._currentUserCopy;
+                                    var userChanged = !angular.equals(orig, copy);
+                                    if (userChanged) {
+                                        var privsChanged = !copy || copy.gid != orig.gid || 
+                                            copy.displayRole != orig.displayRole;
+
+                                        // currentUser actually changed
+                                        ThisComponent.onCurrentUserChanged(privsChanged);
+                                        break;
+                                    }
                                 }
                             };
                         }
@@ -690,18 +714,24 @@ module.exports = NoGapDef.component({
             /**
              * Called when currentUser or values of currentUser changed.
              */
-            onCurrentUserChanged: function() {
-                // notify main
-                this.Instance.Main.onUserPrivChanged();
+            onCurrentUserChanged: function(privsChanged) {
+                // create new copy
+                ThisComponent._currentUserCopy = _.clone(ThisComponent.currentUser);
+                
+                if (privsChanged) {
+                    // notify main
+                    this.Instance.Main.onUserPrivChanged();
+                }
 
                 // raise event
-                this.events.updatedCurrentUser.fire(this.currentUser);
+                return this.events.updatedCurrentUser.fire(this.currentUser);
             },
 
             Public: {
                 setCurrentUser: function(uid) {
                     this.currentUser = uid && this.getUser(uid);
-                    this.onCurrentUserChanged();
+
+                    this.onCurrentUserChanged(true);
                 }
             }
         };

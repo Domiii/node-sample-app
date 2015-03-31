@@ -1,4 +1,23 @@
 (function() {
+	var AngularUtil = {
+        decorateScope: function($scope) {
+        	if ($scope.___decorated) return;
+        	Object.defineProperty($scope, '___decorated', {
+        		value: 1
+        	});
+
+        	// add AngularUtility functions to $scope and bind them
+        	for (var memberName in ScopeMembers) {
+        		var member = ScopeMembers[memberName];
+
+        		if ($scope[memberName]) return;
+
+        		// bind and add to scope
+        		$scope[memberName] = member;
+        	}
+        }
+    };
+
 	/**
 	 * Members to be added to Angular $scopes.
 	 */
@@ -19,6 +38,22 @@
 	            this.$digest(fn);
 	            //this.digestAndMeasure(fn);
 	        }
+	    },
+
+	    applyLater: function(fn) {
+	    	if (!this.$root) return;		// scope has been destroyed
+
+	    	// if already running timer, don't do it again
+	    	if (!this.$root._applyLater) {
+		    	this.$root._applyLater = 1;
+		    	setTimeout(function() {
+	    			if (!this.$root) return;		// scope has been destroyed
+
+	    			// done -> Apply!
+		    		this.$root._applyLater = 0;
+		    		this.$apply(fn);
+		    	}.bind(this));
+		    }
 	    },
 
         /**
@@ -88,22 +123,5 @@
 	};
 
 
-	squishy.getGlobalContext().AngularUtil = {
-        decorateScope: function($scope) {
-        	if ($scope.___decorated) return;
-        	Object.defineProperty($scope, '___decorated', {
-        		value: 1
-        	});
-
-        	// add AngularUtility functions to $scope and bind them
-        	for (var memberName in ScopeMembers) {
-        		var member = ScopeMembers[memberName];
-
-        		if ($scope[memberName]) return;
-
-        		// bind and add to scope
-        		$scope[memberName] = member;
-        	}
-        }
-    };
+	squishy.getGlobalContext().AngularUtil = AngularUtil;
 })();

@@ -14,7 +14,7 @@
  * 2. You can add `InstanceProto` to define instance members on all fetched objects available both on `Client` and `Host`.
  * 3. You can customize cache behavior, by providing the `members` property in your cache declaration.
  *  -> E.g. if you want to add associations or access checks, you can override `compileReadObjectsQuery`.
- *  -> E.g. for custom post-query processing, you can override `onReadObject[s]` (Host).
+ *  -> E.g. for custom post-query processing, you can override `filterReadObject[s]` (Host).
  *  -> E.g. you can override `onAddedObject` `onRemovedObject` (Client).
  * 4. There are different `CacheEndpoint` classes for `Client` and `Host`.
  * 5. Many methods (such as `getModel` and `compileReadObjectsQuery`) are Host-only.
@@ -45,12 +45,15 @@ module.exports = NoGapDef.component({
             _memorySets: {},
 
             getOrCreateMemorySet: function(name, cacheDescriptor) {
-                return this._memorySets[name] = this._memorySets[name] || new this.MemorySet(cacheDescriptor);
+                return this._memorySets[name] = (this._memorySets[name] || new this.MemorySet(cacheDescriptor));
             },
 
             MemorySet: squishy.createClass(function(cacheDescriptor) {
                 this.list = [];
                 this.byId = {};
+
+                this._lastUpdatedAtByQueryData = {};
+                this._lastUpdatedAtList = [];
 
                 if (cacheDescriptor.indices) {
                     // create indices
@@ -61,6 +64,69 @@ module.exports = NoGapDef.component({
                 }
             },{
                 // methods
+
+                _serializeQueryData: function(queryData) {
+                    //if (_.size(queryData) > 1) debugger;
+
+                    // convert queryData into something that is serializable
+                    var serialize = function(obj, depth) {
+                        if (depth > 5) {
+                            throw new Error('Could not serialize queryData: ' + queryData);
+                        }
+                        if (SharedContext.IsHost && Shared.CacheUtil.isModel(obj)) {
+                            return obj.tableName;
+                        }
+                        if (_.isObject(obj)) {
+                            var clone = {};
+                            for (var prop in obj) {
+                                var value = serialize(obj[prop], depth+1);
+                                clone[prop] = value;
+                            }
+                            return clone;
+                        }
+                        return obj;
+                    };
+
+                    return JSON.stringify(serialize(queryData), 1);
+                },
+
+                _addLastUpdatedAt: function(updatedAt, queryData) {
+                    if (this._lastUpdatedAtList.length > 100) {
+                        // prevent unbounded growing:
+                        // kick out the first queryData we used
+                        var oldQueryData = this._lastUpdatedAtList.shift();
+                        delete this._lastUpdatedAtByQueryData[oldQueryData];
+                    }
+
+                    var serializedQueryData = this._serializeQueryData(queryData);
+                    this._lastUpdatedAtList.push(serializedQueryData);
+                    this._lastUpdatedAtByQueryData[serializedQueryData] = updatedAt;
+                },
+
+                /**
+                 * Get the last timestamp for the given query.
+                 */
+                getLastUpdatedAt: function(queryData) {
+                    var serializedQueryData = this._serializeQueryData(queryData);
+                    return this._lastUpdatedAtByQueryData[serializedQueryData];
+                },
+
+                /**
+                 * A new object with the given timestamp has been fetched from DB,
+                 * using the given queryData.
+                 */
+                checkUpdatedAt: function(updatedAt, queryData) {
+                    var serializedQueryData = this._serializeQueryData(queryData);
+                    var lastUpdatedAt = this._lastUpdatedAtByQueryData[serializedQueryData];
+
+                    if (!lastUpdatedAt) {
+                        this._addLastUpdatedAt(updatedAt, queryData);
+                    }
+                    else if (updatedAt.getTime() > lastUpdatedAt.getTime()) {
+                        // updatedAt is newer and replaces the last one
+                        this._lastUpdatedAtByQueryData[serializedQueryData] = updatedAt;
+                    }
+                },
 
                 clear: function() {
                     // clear list
@@ -173,7 +239,7 @@ module.exports = NoGapDef.component({
                     var leafPropertyName = _.last(indexDef.key);
                     var leafValue = obj[leafPropertyName];
 
-                    if (leafValue === null) return;     // don't index by null objects
+                    if (leafValue === null || leafValue === undefined) return;     // don't index by null objects
 
                     if (!indexDef.unique) {
                         // create array, if it does not exist yet
@@ -185,9 +251,7 @@ module.exports = NoGapDef.component({
                     else {
                         // not an array -> One unique object
                         if (node[leafValue]) {
-                            debugger;
-                            console.error('Object was added twice to unique index `' + 
-                                indexDef.name + '`:');
+                            console.error('Object was added twice to unique index `' + indexDef.name + '` = ' + leafValue + ':');
 
                             // separate console line gives us the browser's internal object inspector
                             console.error(obj);
@@ -205,13 +269,21 @@ module.exports = NoGapDef.component({
                     var leafPropertyName = _.last(indexDef.key);
                     var leafValue = obj[leafPropertyName];
 
+                    if (leafValue === null || leafValue === undefined) return;     // don't index by null objects
+
                     if (!indexDef.unique) {
-                        // create array, if it does not exist yet
                         var arr = node[leafValue];
                         console.assert(arr, 'Tried to remove object from index ' +
                             'which has not been added in the first place: ' + obj);
 
+                        var len = arr.length;
                         _.remove(arr, obj);
+                        if (arr.length == len) {
+                            console.error('Could not remove object from index `' + indexDef.name + '`:');
+
+                            // separate console line gives us the browser's internal object inspector
+                            console.error(obj);
+                        }
                     }
                     else {
                         // remove object
@@ -296,6 +368,7 @@ module.exports = NoGapDef.component({
             // Managing + Flushing of all caches
 
             clearAllCaches: function() {
+                // TODO: Make sure, this is in sync with client
                 for (var cacheName in this._memorySets) {
                     var memorySet = this._memorySets[cacheName];
                     memorySet.clear();
@@ -333,8 +406,8 @@ module.exports = NoGapDef.component({
                      */
                     initialize: function(cache) {
                         Object.defineProperty(this, 'Instance', { 
-                        	enumerable: false,
-                        	value: cache.Instance
+                            enumerable: false,
+                            value: cache.Instance
                         });
                     },
 
@@ -405,7 +478,7 @@ module.exports = NoGapDef.component({
                     // ensure correct `idGetter` function
                     var idGetter = cacheDescriptor.idGetter || 
                         (cacheDescriptor.idProperty ? 
-                            eval('(function(obj) { return obj.' + cacheDescriptor.idProperty + ' } )') :
+                            eval('(function(obj) { return obj.' + cacheDescriptor.idProperty + '; } )') :
                             cacheDescriptor.idGetter);
                     console.assert(idGetter instanceof Function, 
                         'Failed to install cache. Invalid cache declaration did ' +
@@ -522,25 +595,25 @@ module.exports = NoGapDef.component({
 
                     for (var cacheName in component.cacheEventHandlers) {
                         var callbacks = component.cacheEventHandlers[cacheName];
-                        var cache = this.getCacheEndpoint(cacheName);
-                        console.assert(cache, 'Invalid entry in `' + component.Shared._def.FullName + 
+                        var cache = this.getDataProvider(cacheName);
+                        console.assert(cache, 'Invalid entry in `' + component.Shared.Def.FullName + 
                             '.cacheEventHandlers`: Cache `' + cacheName + '` does not exist, or has not been initialized yet.');
 
                         var events = cache.events;
-                        console.assert(events, 'Invalid entry in `' + component.Shared._def.FullName + 
+                        console.assert(events, 'Invalid entry in `' + component.Shared.Def.FullName + 
                             '.cacheEventHandlers`: Cache `' + cacheName + '` does not have property `events`.');
 
                         for (var eventName in callbacks) {
                             // get event
                             var evt = events[eventName];
-                            console.assert(evt, 'Invalid entry in `' + component.Shared._def.FullName + 
+                            console.assert(evt, 'Invalid entry in `' + component.Shared.Def.FullName + 
                                 '.cacheEventHandlers`: Cache `' + cacheName + 
                                 '` does not have event property `events.' + eventName + '`.');
 
                             // get callback function
                             var callback = callbacks[eventName];
                             console.assert(callback instanceof Function, 
-                                'Invalid entry in `' + component.Shared._def.FullName + 
+                                'Invalid entry in `' + component.Shared.Def.FullName + 
                                 '.cacheEventHandlers`: Entry `' + eventName + '` is not a function.');
 
                             // hook up callback function to the event
@@ -559,7 +632,7 @@ module.exports = NoGapDef.component({
                 /**
                  * The host-side cache endpoint is a data provider to the client-side cache.
                  */
-                getCacheEndpoint: function(cacheName) {
+                getDataProvider: function(cacheName) {
                     return this.cacheEndpoints[cacheName];
                 },
 
@@ -576,8 +649,6 @@ module.exports = NoGapDef.component({
                 // ctor
                 this.name = cacheName;
                 this._cacheDescriptor = cacheDescriptor;
-                this._hasMemorySet = hasMemorySet;
-
                 
                 /**
                  * This cache's events
@@ -621,16 +692,22 @@ module.exports = NoGapDef.component({
                     removed: squishy.createEvent(/* newObject */),
                 };
 
-                this._reset();
+                this._reset(hasMemorySet);
             }, {
                 // methods
 
                 hasMemorySet: function() {
-                	return !!this._hasMemorySet;
+                    return !!this._memorySet;
                 },
 
-                _reset: function() {
-                    if (this._hasMemorySet) {
+                hasHostMemorySet: function() {
+                    return this._cacheDescriptor.hasHostMemorySet;
+                },
+
+                _reset: function(hasMemorySet) {
+                    hasMemorySet = hasMemorySet || this._memorySet;
+
+                    if (hasMemorySet) {
                         // a cache stores a list and `byId` index of the same set of objects:
                         // Lists make iterating faster, while the `byId` index makes look-up by id faster.
                         this._memorySet = Shared.CacheUtil.getOrCreateMemorySet(this.name, this._cacheDescriptor);
@@ -676,7 +753,7 @@ module.exports = NoGapDef.component({
                  * NOTE: The id must correspond to `idGetter` or `idProperty` of the cache declaration.
                  */
                 getObjectNow: function(queryInput, ignoreAccessCheck) {
-                	if (!this.hasMemorySet()) return null;
+                    if (!this.hasMemorySet()) return null;
 
                     // TODO: Support query language to also support general queryInputs on the cache
                     if (isNaN(queryInput)) {
@@ -689,18 +766,39 @@ module.exports = NoGapDef.component({
                  * Get list of all currently cached objects.
                  */
                 getObjectsNow: function(queryInput, ignoreAccessCheck) {
-                	if (!this.hasMemorySet()) return null;
+                    if (!this.hasMemorySet()) return null;
 
-                	//if (queryInput) throw new Error('`getObjectsNow` must be overridden to support custom query input.');
+                    if (queryInput) {
+                        this.Instance.CacheUtil.Tools.handleError('`getObjectsNow` must be overridden to support custom query input: ' + this.name);
+                    }
 
                     // TODO: Support query language to also support general queryInputs on the cache
-                    //return this.list;
-                    return null;
+                    return this.list;
+                    //return null;
+                },
+
+                getObjectsNowSince: function(queryInput, ignoreAccessCheck, since) {
+                    var objects = this.getObjectsNow(queryInput, ignoreAccessCheck);
+                    var result;
+                    if (since && objects) {
+                        result = [];
+                        for (var i = 0; i < objects.length; ++i) {
+                            var obj = objects[i];
+                            if (!obj.updatedAt || obj.updatedAt.getTime() > since.getTime()) {
+                                result.push(obj);
+                            }
+                        }
+                    }
+                    else {
+                        result = objects;
+                    }
+                    return result;
                 },
 
                 /**
-                 * Get object asynchronously.
+                 * Checks cache first, then reads, if not present.
                  * Returns promise.
+                 * TODO: Always check cache?
                  */
                 getObject: function(queryInput, ignoreAccessCheck, sendToClient, allowNull) {
                     var obj = this.getObjectNow(queryInput, ignoreAccessCheck);
@@ -711,18 +809,6 @@ module.exports = NoGapDef.component({
                     else {
                         // object needs to be fetched from DB
                         return this.readObject(queryInput, ignoreAccessCheck, sendToClient, allowNull);
-                    }
-                },
-
-                getObjects: function(queryInput, ignoreAccessCheck, sendToClient) {
-                    var objects = this.getObjectsNow(queryInput, ignoreAccessCheck);
-                    if (objects && objects.length) {
-                        // object was already cached -> return Promise
-                        return Promise.resolve(objects);
-                    }
-                    else {
-                        // object needs to be fetched from DB
-                        return this.readObjects(queryInput, ignoreAccessCheck, sendToClient);
                     }
                 },
 
@@ -796,7 +882,7 @@ module.exports = NoGapDef.component({
                  * NOTE: `id` must correspond to `idGetter` or `idProperty` of the cache declaration.
                  */
                 removeFromCache: function(objectOrId) {
-                	if (!this.hasMemorySet()) return;
+                    if (!this.hasMemorySet()) return;
 
                     var id;
                     if (isNaN(objectOrId)) {
@@ -846,8 +932,24 @@ module.exports = NoGapDef.component({
                  *
                  * @see http://en.wikipedia.org/wiki/Object_copy#Shallow_copy
                  */
-                _applyChanges: function(data, queryInput) {
-                	if (!this.hasMemorySet()) return;
+                _applyChanges: function(data, queryInput, queryData) {
+                    if (!this.hasMemorySet()) {
+                        // just wrap it, that's it
+                        for (var iObj = 0; data && iObj < data.length; ++iObj) {
+                            var newValues = data[iObj];
+
+                            // fix default updatedAt and createdAt columns
+                            if (newValues.createdAt) {
+                                newValues.createdAt = new Date(newValues.createdAt);
+                            }
+                            if (newValues.updatedAt) {
+                                newValues.updatedAt = new Date(newValues.updatedAt);
+                            }
+
+                            data[iObj] = this.wrapObject(newValues);
+                        }
+                        return data;
+                    }
 
                     var list = this.list;
                     var byId = this.byId;
@@ -861,6 +963,17 @@ module.exports = NoGapDef.component({
                         for (var iObj = 0; iObj < data.length; ++iObj) {
                             var newValues = data[iObj];
                             var id = idGetter.call(this, newValues);
+
+                            // fix default updatedAt and createdAt columns
+                            if (newValues.createdAt) {
+                                newValues.createdAt = new Date(newValues.createdAt);
+                            }
+                            if (newValues.updatedAt) {
+                                newValues.updatedAt = new Date(newValues.updatedAt);
+
+                                var key = queryData || queryInput;
+                                this._memorySet.checkUpdatedAt(newValues.updatedAt, key);
+                            }
 
                             console.assert(id, 'Invalid object had no but NEEDS an id in `Cache._applyChanges` ' +
                                 'of cache `' + this.name + '` - ' +
@@ -916,15 +1029,24 @@ module.exports = NoGapDef.component({
                                     this.indices._addInstance(obj);
                                 }
                                 
-
                                 // fire client-side only event
                                 this.onAddedObject(obj);
                             }
                             else {
+                                // remove from indices
+                                if (this.indices) {
+                                    this.indices._removeInstance(obj);
+                                }
+
                                 // object was cached previously:
                                 // shallow-copy new properties
                                 for (var propName in newValues) {
                                     obj[propName] = newValues[propName];
+                                }
+
+                                // re-add to indices
+                                if (this.indices) {
+                                    this.indices._addInstance(obj);
                                 }
 
                                 // override new object with reference to old one
@@ -1002,7 +1124,7 @@ module.exports = NoGapDef.component({
                      * Called after object has just been fetched from DB.
                      * Can be overwritten for customized post-query processing.
                      */
-                    onReadObject: function(object) {
+                    filterReadObject: function(object) {
                         return object;
                     },
 
@@ -1014,7 +1136,7 @@ module.exports = NoGapDef.component({
                      * Called after objects have just been fetched from DB.
                      * Can be overwritten for customized post-query processing.
                      */
-                    onReadObjects: function(objects) {
+                    filterReadObjects: function(objects) {
                         return objects;
                     },
 
@@ -1037,7 +1159,7 @@ module.exports = NoGapDef.component({
                             // 3. User cheated and sent invalid queryInput.
                             console.warn('Client requested object from cache `' + this.name + 
                                 '` with queryInput: ' + squishy.objToString(queryInput, true, 3));
-                            return Promise.reject('error.invalid.request');
+                            return Promise.reject(makeError('error.invalid.request'));
                         }
                         else {
                             // return id
@@ -1059,7 +1181,7 @@ module.exports = NoGapDef.component({
                             // 3. User cheated and sent invalid queryInput.
                             console.warn('Client requested objects from cache `' + this.name + 
                                 '` with queryInput: ' + squishy.objToString(queryInput, true, 3));
-                            return Promise.reject('error.invalid.request');
+                            return Promise.reject(makeError('error.invalid.request'));
                         }
                         else {
                             // return empty filter
@@ -1095,7 +1217,7 @@ module.exports = NoGapDef.component({
                         }
                         else if (isNaN(objId = this.idGetter(updateData))) {
                             // `updateData` must contain id
-                            return Promise.reject('error.invalid.request');
+                            return Promise.reject(makeError('error.invalid.request'));
                         }
                         else {
                             // build arguments to update call
@@ -1120,14 +1242,7 @@ module.exports = NoGapDef.component({
                             return Promise.reject('error.internal');
                         }
                         else {
-                            // build arguments to delete call
-                            var selector = { where: {} };
-                            selector.where[this.idProperty] = objId;
-
-                            return Promise.resolve({
-                                id: objId,
-                                selector: selector
-                            });
+                            return Promise.resolve(objId);
                         }
                     },
 
@@ -1139,20 +1254,23 @@ module.exports = NoGapDef.component({
                      * Send object delta to Client.
                      */
                     applyChange: function(object, queryInput, dontSendToClient) {
-                        this.applyChanges(object && [object], queryInput, dontSendToClient);
+                        if (object) {
+                            return this.applyChanges([object], queryInput, dontSendToClient)[0];
+                        }
+                        return null;
                     },
 
                     /**
                      * Send object deltas to Client.
                      */
-                    applyChanges: function(objects, queryInput, dontSendToClient) {
-                    	if (this.hasMemorySet()) {
-                    		// update Host-side cache
-                    		this._applyChanges(objects, queryInput);
-                    	}
-                    	if (!dontSendToClient) {
-                        	this.Instance.CacheUtil.client.applyChanges(this.name, objects);
+                    applyChanges: function(objects, queryInput, dontSendToClient, queryData) {
+                        // update Host-side cache and wrap
+                        var wrappedObjects = this._applyChanges(objects, queryInput, queryData);
+
+                        if (!dontSendToClient) {
+                            this.Instance.CacheUtil.client.applyChanges(this.name, objects);
                         }
+                        return wrappedObjects;
                     },
 
                     /**
@@ -1160,7 +1278,7 @@ module.exports = NoGapDef.component({
                      * to be removed from cache.
                      */
                     applyRemove: function(objectOrId, dontSendToClient) {
-	                    var id;
+                        var id;
                         var idGetter = this.idGetter;
                         
                         if (isNaN(objectOrId)) {
@@ -1177,9 +1295,9 @@ module.exports = NoGapDef.component({
                         this.removeFromCache(objectOrId);
 
                         if (!dontSendToClient) {
-	                        // remove from Client cache
-	                        this.Instance.CacheUtil.client.removeFromCachePublic(this.name, id);
-	                    }
+                            // remove from Client cache
+                            this.Instance.CacheUtil.client.removeFromCachePublic(this.name, id);
+                        }
                     },
 
                     /**
@@ -1188,7 +1306,7 @@ module.exports = NoGapDef.component({
                      */
                     applyChangeFromQuery: function(queryInput) {
                         // query object from DB
-                        return this.readObject(queryInput, false, true);
+                        return this.getObject(queryInput, false, true);
                     },
 
                     /**
@@ -1196,12 +1314,36 @@ module.exports = NoGapDef.component({
                      */
                     applyChangesFromQuery: function(queryInput) {
                         // query objects from DB
-                        return this.readObjects(queryInput, false, true);
+                        return this.getObjects(queryInput, false, true);
                     },
 
 
                     // ####################################################################
                     // Read
+
+                    /**
+                     * Check DB for updates, then return objects matching the given input
+                     */
+                    getObjects: function(queryInput, ignoreAccessCheck, sendToClient) {
+                        // re-fetch newest objects from DB
+                        return this.readObjects(queryInput, ignoreAccessCheck, false)
+                        .bind(this)
+                        .then(function(newObjects) {
+                            var objects;
+                            if (this.hasMemorySet()) {        // only if Host has memory set, readObjects might not return all the required objects
+                                objects = this.getObjectsNow(queryInput, ignoreAccessCheck);
+                            }
+                            else {
+                                objects = newObjects;
+                            }
+
+                            if (sendToClient && this.Instance.CacheUtil.client) {
+                                // if on host, we might want to send this stuff straight to the client
+                                this.Instance.CacheUtil.client.applyChanges(this.name, objects);
+                            }
+                            return objects;
+                        });
+                    },
 
                     /**
                      * Query data from DB.
@@ -1227,7 +1369,7 @@ module.exports = NoGapDef.component({
                             '`getModel` did not return a valid Sequelize model.');
 
                         // run DB query and return POD
-                        return model.find(queryData)
+                        return model.findOne(queryData)
                         .bind(this)
                         .then(function(resultRow) {
                             if (!resultRow) {
@@ -1241,13 +1383,13 @@ module.exports = NoGapDef.component({
                             else {
                                 return Promise.resolve(SequelizeUtil.getValuesFromRows(resultRow, queryData && queryData.include))
                                 .bind(this)
-                                .then(this.wrapObject)
-                                .then(this.onReadObject)
-                                .then(function(object) {
+                                .then(function(newObject) {
+                                    if (!newObject) return null;
+
                                     // apply change to memory set
-                                    this.applyChanges(object && [object], queryInput, !sendToClient);
-                                    return object;
-                                });
+                                    return this.applyChange(newObject, queryInput, !sendToClient);
+                                })
+                                .then(this.filterReadObjects);
                             }
                         });
                     },
@@ -1266,31 +1408,41 @@ module.exports = NoGapDef.component({
 
                         // then, query actual data from DB
                         .then(function(queryData) {
-                        	return this.findObjects(queryData, queryInput, sendToClient);
+                            return this._findObjects(queryData, queryInput, sendToClient);
                         });
                     },
 
-                    findObjects: function(queryData, queryInput, sendToClient) {
+                    _findObjects: function(queryData, queryInput, sendToClient) {
                         var model = this.getModel();
                         console.assert(model && model.find,
                             '`getModel` did not return a valid Sequelize model.');
 
+                        if (this.hasMemorySet()) {
+                            // NOTE: one of the single most important performance optimization in this entire code
+                            var lastUpdatedAt = this._memorySet.getLastUpdatedAt(queryData);
+                            if (lastUpdatedAt) {
+                                // only query objects that we did not query already!
+                                queryData = queryData || {};
+                                queryData.where = queryData.where || {};
+                                queryData.where.updatedAt = { gt: lastUpdatedAt };
+                            }
+                        }
+
                         // run DB query
                         return model.findAll(queryData)
+                        .bind(this)
                         .then(function(resultRows) {
                             // get only plain data
+                            //return resultRows;
                             return SequelizeUtil.getValuesFromRows(resultRows, queryData && queryData.include);
                         })
 
                         // wrap, call events, then return result
-                        .bind(this)
-                        .map(this.wrapObject)
-                        .then(this.onReadObjects)
-                        .then(function(objects) {
-                        	// apply change to memory set
-                            this.applyChanges(objects, queryInput, !sendToClient);
-                            return objects;
-                        });
+                        .then(function(newObjects) {
+                            // apply change to memory set
+                            return this.applyChanges(newObjects, queryInput, !sendToClient, queryData);
+                        })
+                        .then(this.filterReadObjects);
                     },
 
 
@@ -1304,7 +1456,7 @@ module.exports = NoGapDef.component({
                         return Promise.resolve()
                         .bind(this)
                         .then(function() {
-                        	return this.compileObjectCreate(queryInput, ignoreAccessCheck);
+                            return this.compileObjectCreate(queryInput, ignoreAccessCheck);
                         })
                         // .tap(function(queryData) {
                         //     console.error('creating: ' + queryData)
@@ -1316,35 +1468,28 @@ module.exports = NoGapDef.component({
 
                         .then(SequelizeUtil.getValuesFromRows)
                         .bind(this)
-                        .then(this.wrapObject)
-                        .then(this.onCreateObject)
                         .then(function(newObj) {
                             // update caches
-                            this.applyChange(newObj, queryInput, dontSendToClient);
-
-                            // return new object
-                            return newObj;
-                        });
+                            return this.applyChange(newObj, queryInput, dontSendToClient);
+                        })
+                        .then(this.onCreateObject);
                     },
 
-                    findOrCreateObject: function(options, queryInput) {
-                        return this.getModel().findOrCreate(options)
-
-                        .then(SequelizeUtil.getValuesFromRows)
-                        .bind(this)
-                        .then(this.wrapObject)
-                        .then(this.onCreateObject)
-                        .then(function(newObj) {
-                            // update Host + Client memory sets
-                            this.applyChange(newObj, queryInput, dontSendToClient);
-
-                            // return new object
-                            return newObj;
-                        });
-                    },
+                    // findOrCreateObject: function(options, queryInput) {
+                    //     return this.getModel().findOrCreate(options)
+                    //     .then(SequelizeUtil.getValuesFromRows)
+                    //     .bind(this)
+                    //     .then(this.onCreateObject)
+                    //     .then(function(newObj) {
+                    //         // update Host + Client memory sets
+                    //         return this.applyChange(newObj, queryInput, dontSendToClient);
+                    //     });
+                    // },
 
                     /**
-                     * Store updates to object in DB
+                     * Update object in DB
+                     * TODO: Add more safety checks to prevent updates sent to DB to affect more than the intended objects.
+                     *      We can do so, e.g., by making sure that the given selector must match to a unique index.
                      */
                     updateObject: function(queryInput, ignoreAccessCheck, dontSendToClient) {
                         //console.error(queryInput);
@@ -1352,48 +1497,66 @@ module.exports = NoGapDef.component({
                         return Promise.resolve()
                         .bind(this)
                         .then(function() {
-                        	return this.compileObjectUpdate(queryInput, ignoreAccessCheck);
+                            return this.compileObjectUpdate(queryInput, ignoreAccessCheck);
                         })
                         .then(function(objectUpdateData) {
                             if (!objectUpdateData) {
-                                return Promise.reject('error.invalid.request');
+                                return Promise.reject(makeError('error.invalid.request'));
                             }
 
                             var objValues = objectUpdateData.values;
                             var selector = objectUpdateData.selector;
 
+                            var id = this.idGetter(objValues) || (selector && selector.where && this.idGetter(selector.where));
+                            if (!selector || !selector.where) {
+                                // if no where is given, look up id
+                                if (isNaN(id)) {
+                                    return Promise.reject(makeError('error.invalid.request', 'missing or invalid id in `updateObject` for cache ' + this.name));
+                                }
+                                selector = selector || {};
+                                selector.where = selector.where || {};
+                                selector.where[this.idProperty] = id;
+                            }
+
                             // update things in DB
                             return this.getModel().update(objValues, selector)
                             .bind(this)
                             .then(function() {
-	                            // update memory sets
-	                            this.applyChange(objValues, queryInput, dontSendToClient);
+                                // update memory sets
+                                if (id) {
+                                    this.idSetter(objValues, id);   // make sure, id is set (if it was not in values, but only in selector)
+                                }
+
+                                this.applyChange(objValues, queryInput, dontSendToClient);
                             });
                         });
                     },
 
                     /**
                      * Delete object from DB
+                     * WARNING: BE EXTREMELY CAREFUL WITH THIS FUNCTION.
+                     *      If not handled correctly, it might accidentally delete a lot more than we wanted.
                      */
                     deleteObject: function(queryInput, ignoreAccessCheck, dontSendToClient) {
                         return Promise.resolve()
                         .bind(this)
                         .then(function() {
-                        	return this.compileObjectDelete(queryInput, ignoreAccessCheck);
+                            return this.compileObjectDelete(queryInput, ignoreAccessCheck);
                         })
-                        .then(function(objectDeleteData) {
-                            var objId = objectDeleteData.id;
-                            var selector = objectDeleteData.selector;
+                        .then(function(objId) {
+                            //var selector = objectDeleteData.selector;
 
-                            if (!selector && objId) {
-                                selector = { where: {} };
-                                selector.where[this.idProperty] = objId;
+                            if (isNaN(objId)) {
+                                return Promise.reject(makeError('error.internal', '`compileObjectDelete` did not return an id for cache ' + this.name));
                             }
+
+                            var selector = { where: {} };
+                            selector.where[this.idProperty] = objId;
 
                             // send query to DB
                             return this.getModel().destroy(selector)
                             .bind(this)
-                            .then(function(/*, affectedRows*/) {
+                            .tap(function() {
                                 // update memory sets
                                 if (objId) {
                                     this.applyRemove(objId, dontSendToClient);
@@ -1401,7 +1564,11 @@ module.exports = NoGapDef.component({
                             });
                         });
                     },
-                });
+                });     // CacheEndpoint
+            },      // ctor
+
+            isModel: function(obj) {
+                return SequelizeUtil.isModel(obj);
             },
 
             Private: {
@@ -1421,10 +1588,10 @@ module.exports = NoGapDef.component({
              */
             Public: {
                 fetchObject: function(cacheName, queryInput) {
-                    var dataProvider = this.getCacheEndpoint(cacheName);
+                    var dataProvider = this.getDataProvider(cacheName);
                     if (!dataProvider) {
                         console.warn('Invalid cacheName for `fetchObject`: ' + cacheName);
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else if (!this.Instance.User.hasRole(this.getMinRole())) {
                         return Promise.reject('error.invalid.permissions');
@@ -1435,28 +1602,37 @@ module.exports = NoGapDef.component({
                     }
                 },
 
-                fetchObjects: function(cacheName, queryInput) {
-                    var dataProvider = this.getCacheEndpoint(cacheName);
+                fetchObjects: function(cacheName, queryInput, since) {
+                    var dataProvider = this.getDataProvider(cacheName);
 
                     if (!dataProvider) {
                         console.warn('Invalid cacheName for `fetchObjects`: ' + cacheName);
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else if (!this.Instance.User.hasRole(this.getMinRole())) {
                         return Promise.reject('error.invalid.permissions');
                     }
                     else {
-                        // query objects and send back to client
-                        return dataProvider.getObjects(queryInput);
+                        // query objects and send newest additons back to client
+                        return dataProvider.readObjects(queryInput)
+                        .then(function(newObjects) {
+                            if (this.hasMemorySet()) {
+                                return this.getObjectsNowSince(queryInput, false, since && new Date(since));
+                            }
+                            else {
+                                // the queries objects are all matching objects
+                                return newObjects;
+                            }
+                        });
                     }
                 },
 
                 createObject: function(cacheName, queryInput) {
-                    var dataProvider = this.getCacheEndpoint(cacheName);
+                    var dataProvider = this.getDataProvider(cacheName);
 
                     if (!dataProvider) {
                         console.warn('Invalid cacheName for `createObject`: ' + cacheName);
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else if (!this.Instance.User.hasRole(this.getMinRole())) {
                         return Promise.reject('error.invalid.permissions');
@@ -1473,11 +1649,11 @@ module.exports = NoGapDef.component({
                 },
 
                 updateObject: function(cacheName, queryInput) {
-                    var dataProvider = this.getCacheEndpoint(cacheName);
+                    var dataProvider = this.getDataProvider(cacheName);
 
                     if (!dataProvider) {
                         console.warn('Invalid cacheName for `updateObject`: ' + cacheName);
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else if (!this.Instance.User.hasRole(this.getMinRole())) {
                         return Promise.reject('error.invalid.permissions');
@@ -1489,11 +1665,11 @@ module.exports = NoGapDef.component({
                 },
 
                 deleteObject: function(cacheName, queryInput) {
-                    var dataProvider = this.getCacheEndpoint(cacheName);
+                    var dataProvider = this.getDataProvider(cacheName);
 
                     if (!dataProvider) {
                         console.warn('Invalid cacheName for `deleteObject`: ' + cacheName);
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else if (!this.Instance.User.hasRole(this.getMinRole())) {
                         return Promise.reject('error.invalid.permissions');
@@ -1524,9 +1700,11 @@ module.exports = NoGapDef.component({
                 }, {
                     // methods
 
-                    applyChange: function(obj, queryInput) {
-                        var newObjects = this._applyChanges([obj], queryInput);
-                        return newObjects[0];
+                    applyChange: function(object, queryInput) {
+                        if (object) {
+                            return this.applyChanges([object], queryInput)[0];
+                        }
+                        return null;
                     },
 
                     /**
@@ -1535,6 +1713,18 @@ module.exports = NoGapDef.component({
                      */
                     applyChanges: function(newData, queryInput) {
                         return this._applyChanges(newData, queryInput);
+                    },
+
+                    /**
+                     * Check DB for updates, then return objects matching the given input
+                     */
+                    getObjects: function(queryInput, ignoreAccessCheck) {
+                        // re-fetch newest objects from DB
+                        return this.readObjects(queryInput, ignoreAccessCheck)
+                        .then(function(newObjects) {
+                            // TODO: Call getObjectsNow
+                            return newObjects;
+                        });
                     },
 
                     /**
@@ -1561,10 +1751,18 @@ module.exports = NoGapDef.component({
                         // fire event
                         this.events.sendingReadQueryToHost.fire(queryInput);
 
+                        // TODO: In order to use `since` here, we need the server's updatedAt for the given translated queryData
+                        //      If we go by queryInput instead of queryData, we will end up missing data,
+                        //      in case that compileReadObjectsQuery is not time-independent.
+                        //var since = this._memorySet.getLastUpdatedAt(queryInput);
+                        var since = null;
+
                         // get objects from server
-                        return this.Instance.CacheUtil.host.fetchObjects(this.name, queryInput)
+                        // currently, this is: All objects matching the query, even the already cached ones
+                        return this.Instance.CacheUtil.host.fetchObjects(this.name, queryInput, since)
                         .bind(this)
                         .then(function(objects) {
+                            //console.log(this.name + ' ' + (objects && objects.length));
                             return this._applyChanges(objects, queryInput);
                         })
                         .catch(function(err) {
@@ -1589,8 +1787,7 @@ module.exports = NoGapDef.component({
                             this.idSetter(newObj, newObjId);
 
                             // add to cache + return
-                            this.applyChange(newObj);
-                            return newObj;
+                            return this.applyChange(newObj);
                         }.bind(this));
                     },
 
@@ -1599,20 +1796,22 @@ module.exports = NoGapDef.component({
                      * Only sends shallow version of object, ignores nested object properties.
                      */
                     updateObject: function(_queryInput) {
-                        // TODO: Support arbitrary queryInput
-                        var id = this.idGetter(_queryInput);
-                        var origObj = _.clone(this.getObjectNowById(id));
-                        console.assert(origObj, '`updateObject` called with unused id: ' + id);
-
-                        // ignore nested object properties
-                        var queryInput = _.clone(this.getObjectNowById(id), function(value) {
+                        // ignore nested object properties for now
+                        var queryInput = _.clone(_queryInput, function(value) {
                             if (!_.isObject(value)) {
                                 return _.clone(value);
                             }
                         });
 
-                        // apply changes right away
-                        this.applyChange(queryInput);
+                        var id = this.idGetter(_queryInput);
+                        var origObj = null;
+                        var obj = this.getObjectNowById(id);
+                        if (obj && obj !== _queryInput) {
+                            // if an id is given and the given update is not the object itself, apply changes
+                            origObj = _.clone(obj);
+                            console.assert(origObj, '`updateObject` called with unused id: ' + id);
+                            this.applyChange(queryInput);
+                        }
 
                         return this.Instance.CacheUtil.host.updateObject(this.name, queryInput)
                         .bind(this)
@@ -1620,8 +1819,10 @@ module.exports = NoGapDef.component({
                             // update succeeded
                         })
                         .catch(function(err) {
-                            // update failed -> rollback
-                            this.applyChange(origObj);
+                            if (origObj) {
+                                // update failed -> rollback
+                                this.applyChange(origObj);
+                            }
                             this.Instance.CacheUtil.Tools.handleError(err);
                         });
                     },
@@ -1680,7 +1881,7 @@ module.exports = NoGapDef.component({
                  * Host sent changed data.
                  */
                 applyChanges: function(cacheName, objects) {
-                    var cache = this.getCacheEndpoint(cacheName);
+                    var cache = this.getDataProvider(cacheName);
                     if (!cache) {
                         console.error('Invalid argument `cacheName` for `applyChanges` (cache does not exist): ' + cacheName);
                         return;
@@ -1691,7 +1892,7 @@ module.exports = NoGapDef.component({
                 },
 
                 removeFromCachePublic: function(cacheName, objectId) {
-                    var cache = this.getCacheEndpoint(cacheName);
+                    var cache = this.getDataProvider(cacheName);
                     if (!cache) {
                         console.error('Invalid argument `cacheName` for `removeFromCache` (cache does not exist): ' + cacheName);
                         return;

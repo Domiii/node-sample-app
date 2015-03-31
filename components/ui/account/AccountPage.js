@@ -44,7 +44,7 @@ module.exports = NoGapDef.component({
                     // only staff members may set their display role
                     // NOTE: We cannot use `isStaff` here, since it checks against the `displayRole`, which might currently be demoted
                     if (!user || user.role <= UserRole.Student) {
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     // one can never increase one's own role
                     else if (newRole > user.role) {
@@ -60,7 +60,7 @@ module.exports = NoGapDef.component({
                     var user = this.Instance.User.currentUser;
 
                     if (!user) {
-                        return Promise.reject('error.invalid.request');
+                        return Promise.reject(makeError('error.invalid.request'));
                     }
                     else {
                         // update user values
@@ -82,6 +82,9 @@ module.exports = NoGapDef.component({
         return {
             __ctor: function() {
                 ThisComponent = this;
+            },
+
+            initClient: function(){
             },
 
             /**
@@ -148,12 +151,26 @@ module.exports = NoGapDef.component({
                         })
                         .catch($scope.handleError.bind($scope));
                     };
+
+                    /**
+                     * Check if role was changed and update menu correspondingly.
+                     */
+                    $scope.updateRoleStatus = function(newRole) {
+                        var roleChanged = Instance.User.currentUser.role != newRole;
+                        $scope.roleChanged = roleChanged;
+
+                        // sync button mark?
+                        ThisComponent.page.navButton.setUrgentMarker(roleChanged);
+                    };
+
+                    
+                    $scope.updateRoleStatus(Instance.User.currentUser.displayRole);
                 });
 
                 // register page
                 Instance.UIMgr.registerPage(this, 'Account', this.assets.template, {
                     iconClasses: 'fa fa-user',
-                    right: 2,
+                    right: 3,
                     getText: function() {
                         var user = Instance.User.currentUser;
 
@@ -165,7 +182,10 @@ module.exports = NoGapDef.component({
                 });
             },
 
-            onPageActivate: function() {
+            onPageActivate: function(args) {
+                if (args && args.infoMessage) {
+                    this.page.scope.infoMessage = args.infoMessage;
+                }
             },
             
             /**

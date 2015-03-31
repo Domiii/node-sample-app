@@ -4,9 +4,23 @@
 module.exports = {
 
     // ########################################################################################################################
+    // Application status
+
+
+    /**
+     * Whether new users may still register
+     */
+    'registrationLocked': 0,
+
+    /**
+     * Whether user information may still be updated through the Profile page
+     */
+    'profileLocked': 0,
+
+    // ########################################################################################################################
     // Server + Hosting
 
-    'hosts': ['localhost'],
+    'hosts': ['localhost', '0.0.0.0'],
 
 
 
@@ -23,8 +37,9 @@ module.exports = {
     // ########################################################################################################################
     // Facebook settings
 
-    'facebookAppID': '369298383249820',
-    'facebookAppSecret': '8ab2043f222dc5db2065f1658151e071',
+    // Test FB App settings
+    'facebookAppID': '392918107554514',
+    'facebookAppSecret': '4ecaef98a8828386f5e2260e03f4a685',
     
 
     // ########################################################################################################################
@@ -38,11 +53,6 @@ module.exports = {
     'traceClient': 1,
 
     'traceHost': 1,
-
-    /**
-     * Whether to enable the simulator
-     */
-    'simulatorEnabled': 1,
 
 
     // ########################################################################################################################
@@ -79,7 +89,7 @@ module.exports = {
         'userFile': '_log/user.log',
     },
 
-    // define session parameters
+    // session configuration
     'session' : {
         // For more information, read: http://blog.teamtreehouse.com/how-to-create-totally-secure-cookies
         // session persists for 1 month:
@@ -99,7 +109,6 @@ module.exports = {
 
     // NoGap component and application configuration
     'nogap': {
-        'publicFolder' : './pub',
         'logging'      : {
             'verbose'   : 1
         },
@@ -119,13 +128,12 @@ module.exports = {
          */
         'files'        : [
             // core utilities (need to initialize first, for now)
+            'util/RuntimeError',
             'util/CacheUtil',
-            'util/FileUpload',
 
             // core components
             'models/core/AppConfig',
             'models/core/User',
-            'models/core/Group',
 
             // misc utilities
             'util/Auth',
@@ -134,18 +142,19 @@ module.exports = {
             'util/Log',
             'util/ValidationUtil',
             'util/SimpleBooleanExpressions',
+            'util/FacebookApi',
 
             // core UI components:
             'ui/UIMgr',
             'ui/Main',
 
-            // guest pages:
+            // guest + unregistered pages:
             'ui/guest/GuestPage',
+            'ui/guest/ProfilePage',
 
             // user pages:
             'ui/home/HomePage',
-            'ui/group/GroupPage',
-            'ui/account/AccountPage',
+            'ui/account/AccountPage'
         ]
     },
 };

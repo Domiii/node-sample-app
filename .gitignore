@@ -18,8 +18,7 @@ pub/uploads/*
 # ignore most modules
 node_modules/*
 !node_modules/nogap/
-node_modules/nogap/node_modules/marked-toc
-node_modules/nogap/node_modules/.bin
+node_modules/nogap/node_modules/*
 node_modules/nogap/samples
 
 

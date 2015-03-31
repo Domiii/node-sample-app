@@ -144,6 +144,18 @@ module.exports = NoGapDef.component({
              *
              */
             _onInit: function() {
+                // register modal to be shown when a refresh is requested
+                Instance.Libs.ComponentCommunications.events.refreshRequested.addListener(function() {
+                    return new Promise(function(resolve, reject) {
+                        var title = 'WARNING - ' + this.appName + ' requested a refresh.';
+                        var body = 'You must refresh to continue working! Do you want to refresh now? ' +
+                            'Make sure to COPY all your unsaved progress first!!!';
+
+                        scope.okCancelModal('', title, body, resolve, reject);
+                    }.bind(this));
+                }.bind(this));
+
+
                 // update current page view in regular intervals
                 var updateDelayMillis = 60 * 1000; // every minute
                 this.pageUpdateTimer = setInterval(function() {
@@ -282,9 +294,14 @@ module.exports = NoGapDef.component({
                         this.lastAddress = history.state;
                         this.gotoAddressBarAddress();
                     }.bind(this);
-                    
+
                     // add the view to the body
                     // this will also bootstrap our angular app
+                    window.onload = function() {
+                        //document.body.innerHTML += this.assets.template;
+                    }.bind(this);
+
+                    console.log(this.assets.template.length);
                     document.body.innerHTML += this.assets.template;
                 }.bind(this));
             },
@@ -335,9 +352,9 @@ module.exports = NoGapDef.component({
             registerPage: function(component, pageName, content, buttonData, parentPageName) {
                 var This = this;
 
-                console.assert(!pagesByPageName[pageName], 'Page name already exists. Currently, page names must be unique');
+                console.assert(!pagesByPageName[pageName], pageName + ' - page name registered more than once. Currently, page names must be unique');
 
-                var componentName = component._def.FullName;
+                var componentName = component.Def.FullName;
                 var group = pageGroupsByComponentName[componentName];
 
                 console.assert(group, 'Page was not in any group - We need groups to determine what to load and when: ' + pageName);
@@ -444,12 +461,17 @@ module.exports = NoGapDef.component({
                         this.urgentMarker = enabled;
 
                         // refresh menu
-                        //invalidateMenuView();
-                        invalidateView();
+                        invalidateMenuView();
+                        //invalidateView();
                     },
 
                     // badge value
-                    badgeValue: 0,
+                    badgeText: null,
+                    badgeType: 'danger',
+                    setBadge: function(badgeText, badgeType) {
+                        this.badgeText = badgeText;
+                        this.badgeType = badgeType || this.badgeType;
+                    }
                 };
 
                 // add default `onClick` function: gotoPage
@@ -550,7 +572,7 @@ module.exports = NoGapDef.component({
                 });
                 
                 // add component to scope
-                scope[component._def.FullName] = component;
+                scope[component.Def.FullName] = component;
             },
 
             /**
@@ -571,7 +593,7 @@ module.exports = NoGapDef.component({
                 var ui = this._registerElementComponentBase(component);
 
                 // add templateName, and register component and template
-                ui.templateName = 'fixed/' + component._def.FullName;
+                ui.templateName = 'fixed/' + component.Def.FullName;
                 this.addTemplate(ui.templateName, template);
                 fixedElements.push(ui);
             },
@@ -585,7 +607,7 @@ module.exports = NoGapDef.component({
                 });
 
                 // add component to scope
-                $scope[component._def.FullName] = component;
+                $scope[component.Def.FullName] = component;
             },
 
             // ################################################################################################################
@@ -682,7 +704,10 @@ module.exports = NoGapDef.component({
                 if (path.length > 0) {
                     path = path.substring(1);
                 }
+                return this.gotoPath(path);
+            },
 
+            gotoPath: function(path) {
                 if (path.length == 0) {
                     // go to default page
                     return this.gotoDefaultPage();
@@ -790,13 +815,13 @@ module.exports = NoGapDef.component({
              * Display current page location in address bar (and add history entry).
              * Does not do anything if the given component is not the active page and `force` is `false`.
              */
-            updateAddressBar: function(component, pageArgs, force) {
+            updateAddressBar: function(component, force) {
                 if (force || (activePage && activePage.component == component)) {
                     // build base path from path in page tree
                     var pagePath = this.getPageBasePath(activePage);
 
                     // get pageArgs
-                    pageArgs = pageArgs || component.getPageArgs() || '';
+                    var pageArgs = component.getPageArgs() || '';
                     if (pageArgs) {
                         pagePath += '/' + pageArgs;
                     }
@@ -861,13 +886,20 @@ module.exports = NoGapDef.component({
              */
             _callOnPageActivateOnComponent: function(component, pageArgs) {
                 var onPageActivateCb = component.onPageActivate;
+                var promise = Promise.resolve();
                 if (onPageActivateCb instanceof Function) {
-                    onPageActivateCb.call(component, pageArgs);
+                    promise = promise.then(function() {
+                        return onPageActivateCb.call(component, pageArgs);
+                    });
                 }
                 else if (onPageActivateCb && onPageActivateCb.pre) {
                     // `onPageActivate` is an object with optional `pre` and `post` properties
-                    onPageActivateCb.pre.call(component, pageArgs);
+                    promise = promise.then(function() {
+                        return onPageActivateCb.pre.call(component, pageArgs);
+                    });
                 }
+
+                // TODO: Also work with prmoises on the child components
 
                 // recursively call `onPageActivate` on children
                 component.forEachPageChild(function(childComponent) {
@@ -876,8 +908,11 @@ module.exports = NoGapDef.component({
 
                 if (onPageActivateCb && onPageActivateCb.post) {
                     // `onPageActivate` is an object with optional `pre` and `post` properties
-                    onPageActivateCb.post.call(component, pageArgs);
+                    promise = promise.then(function() {
+                        return onPageActivateCb.post.call(component, pageArgs);
+                    });
                 }
+                return promise;
             },
             
             _onPageActivate: function(page, pageArgs) {
@@ -908,16 +943,18 @@ module.exports = NoGapDef.component({
                     activeButton = parentPage.navButton;
                 }
                 
-                // add history entry
-                Instance.UIMgr.updateAddressBar(page.component, pageArgs, true);
-                
                 // re-compute arguments
                 pageArgs = pageArgs || page.component.getPageArgs();
 
                 // this creates the page scope
                 invalidateView();
-
-                this._callOnPageActivateOnComponent(page.component, pageArgs);
+                
+                return this._callOnPageActivateOnComponent(page.component, pageArgs)
+                .bind(this)
+                .then(function() {
+                    // add history entry
+                    Instance.UIMgr.updateAddressBar(page.component, true);
+                });
             },
                     
             /**
@@ -926,13 +963,18 @@ module.exports = NoGapDef.component({
             _setActivePage: function(newPage, pageArgs, force) {
                 var This = Instance.UIMgr;
 
+                if (Instance.Libs.ComponentCommunications.hasRefreshBeenRequested()) {
+                    // server has already requested a refresh -> ask user again
+                    Instance.Libs.ComponentCommunications.requestRefresh();
+                }
+
                 return This.ready(function() {
                     // we need to defer setup because Angular might not be ready yet
-                    if (!force && activePage == newPage && this.arePageArgsEqual(activePage.component.getPageArgs(), pageArgs)) {
+                    if (!force && activePage == newPage && (!pageArgs || this.arePageArgsEqual(activePage.component.getPageArgs(), pageArgs))) {
                         // same page -> Don't do anything
 
                         // same page -> Only update address arguments
-                        //Instance.UIMgr.updateAddressBar(newPage.component, pageArgs, true);
+                        //Instance.UIMgr.updateAddressBar(newPage.component, true);
                     }
                     else {
                         if (activePage && activePage !== newPage) {
@@ -949,14 +991,16 @@ module.exports = NoGapDef.component({
                         }
                         else {
                             // activate new page
-                            this._onPageActivate(newPage, pageArgs);
+                            this._onPageActivate(newPage, pageArgs)
+                            .bind(this)
+                            .then(function() {
+                                // invalid view
+                                invalidateView();
+
+                                // fire event
+                                This.events.pageActivated.fire(newPage);
+                            })
                         }
-
-                        // invalid view
-                        invalidateView();
-
-                        // fire event
-                        This.events.pageActivated.fire(newPage);
                     }
                 }.bind(this));
             },
@@ -970,7 +1014,7 @@ module.exports = NoGapDef.component({
              */
             onNewComponent: function(newComponent) {
                 // call `setupUI` on ui components
-                //console.log('comp ' + newComponent._def.FullName + ' ' + !!newComponent.setupUI);
+                //console.log('comp ' + newComponent.Def.FullName + ' ' + !!newComponent.setupUI);
                 if (newComponent.setupUI) {
                     newComponent.setupUI(this, app);
 
@@ -984,24 +1028,24 @@ module.exports = NoGapDef.component({
                     for (var componentName in newComponent.componentEventHandlers) {
                         var dependency = newComponent.componentEventHandlers[componentName];
                         var otherComponent = Instance[componentName];
-                        console.assert(otherComponent, 'Invalid entry in `' + newComponent._def.FullName + 
+                        console.assert(otherComponent, 'Invalid entry in `' + newComponent.Def.FullName + 
                             '.componentEventHandlers`: Component `' + componentName + '` does not exist.');
 
 
                         var events = otherComponent.events;
-                        console.assert(events, 'Invalid entry in `' + newComponent._def.FullName + 
+                        console.assert(events, 'Invalid entry in `' + newComponent.Def.FullName + 
                             '.componentEventHandlers`: Component `' + componentName + '` does not define any events.');
 
 
                         for (var eventName in dependency) {
                             // get callback function
                             var callback = dependency[eventName];
-                            console.assert(callback instanceof Function, 'Invalid entry in `' + newComponent._def.FullName + 
+                            console.assert(callback instanceof Function, 'Invalid entry in `' + newComponent.Def.FullName + 
                                 '.componentEventHandlers`: Entry `' + eventName + '` is not a function.');
 
                             // get event
                             var evt = events[eventName];
-                            console.assert(evt, 'Invalid entry in `' + newComponent._def.FullName + 
+                            console.assert(evt, 'Invalid entry in `' + newComponent.Def.FullName + 
                                 '.componentEventHandlers`: Component `' + componentName + '` does not define `events.' + eventName + '` property.');
 
                             // hook up callback function to the event

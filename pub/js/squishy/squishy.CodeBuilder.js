@@ -14,16 +14,8 @@ var lastCodeId = 0;
  * Provides tools to convert JS code to strings and back.
  */
 squishy.CodeBuilder = {
-    /**
-     * Fix quotation marks and new-lines.
-     */
-    escapeCode: function(codeStr) {
-        // TODO: Avoid double-escaping of quotation marks inside of strings.
-        return '\'' + codeStr.replace(/'/g, '\\\'').replace(/\r?\n|\r/g, '\\n') + '\'';
-    },
-    
     prettyFileNameUrl: function(fname) {
-        // TODO: Use encodeURIComponent to make sure that fname is a valid URL
+        // TODO: Use encodeURIComponent to make sure that fname is a valid URL (but will make URL ugly)
         // Note: Chrome (and possibly other browsers) cannot cope well with multiple codes having the same alias.
         //      So we add a unique part to every name.
         //      However, we don't want to use a number because that can be confused as line number.
@@ -41,19 +33,9 @@ squishy.CodeBuilder = {
             code /= 26;
         }
         
+        //return '!' + str + '!' + encodeURIComponent(fname.replace(/\\/g, '/'));
         return '!' + str + '!' + fname.replace(/\\/g, '/');
     },
-
-    /** 
-     * Annotates a string of code, so that the stacktrace contains a meaningful filename when eval'ed.
-     * Make sure that name has the format of an URL (must not contain whitespace, etc...).
-     *
-     * @see http://blog.getfirebug.com/2009/08/11/give-your-eval-a-name-with-sourceurl/
-     */
-    nameCode: function(codeString, name) {
-        return codeString + "\n//@ sourceURL=" + encodeURIComponent(name);
-    },
-    
 
     /**
      * Make sure that the function declaration is tightly wrapped by `serializeInlineFunction`.
@@ -111,7 +93,7 @@ squishy.CodeBuilder = {
             codeString += ' ';
         }
         codeString += code.toString() + ')';
-        codeString += "\n//@ sourceURL=" + this.prettyFileNameUrl(creationFrame.fileName);
+        codeString += "\n//# sourceURL=" + this.prettyFileNameUrl(creationFrame.fileName);
         //codeString = 'eval(eval(' + this.escapeCode(codeString) + '))';
 
         var completeCode = '(eval(eval(' + JSON.stringify(codeString) + ')))';

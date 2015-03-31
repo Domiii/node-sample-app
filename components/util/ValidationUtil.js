@@ -17,6 +17,7 @@ module.exports = NoGapDef.component({
     	var TitleMinLength = 1;		// note: In some languages, a single character name or title actually makes sense
     	var TitleMaxLength = 50;
 
+
         return {
         	/**
         	 * Verifies if the given name or title is `sensible` according to certain parameters.
@@ -123,6 +124,7 @@ module.exports = NoGapDef.component({
 
                         setTimeout(revalidate);
                     }
+
                 };});
             },
 

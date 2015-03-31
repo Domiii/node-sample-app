@@ -10,6 +10,21 @@
         <br/>
     </div>
 
+    <div ng-if="!!errorMessage" class="alert alert-danger fill">
+        <span>
+            {{errorMessage}}
+        </span>
+        <br/>
+    </div>
+
+    <div ng-if="!!infoMessage" class="alert alert-info fill">
+        <a href="#" class="close" data-dismiss="alert">&times;</a>
+        <span>
+            {{infoMessage}}
+        </span>
+        <br/>
+    </div>
+
 
     <!-- ##################################################################################################### -->
     <!-- Account Overview -->
@@ -17,38 +32,19 @@
     <div class="panel panel-primary">
         <div class="panel-heading">
             <div class="panel-title">
-                <localize key="account.yourAccount" />
+                <localize key="account.yourAccount"></localize> - <span>{{currentUser.name}}</span>
             </div>
         </div>
         <div class="panel-body">
-            <div ng-if="!!errorMessage" class="alert alert-danger fill">
-                <span>
-                    {{errorMessage}}
-                </span>
-            	<br/>
-            </div>
 
-
-            <div class="">
-                <!-- Basic Account info -->
-                <div class="alert alert-info centered-y"
-                    style="margin-bottom: 0px;">
-                    <localize key="account.userInfo" args="currentUser.name" />
-                </div>
-
-                <!-- Logout button -->
-                <div class="centered-y pull-right">
                     <a ng-disabled="busy"
-                        class="btn btn-lg btn-fancy" 
-                        ng-click="clickLogout()">
-                        <localize key="Logout"></localize>
+                class="btn btn-lg btn-danger"
+                ng-click="gotoPage('Profile'); busy = true;">
+                Visit your Profile
                         <span ng-style="{visibility: busy && 'visible' || 'hidden'}">
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
                     </a>
-                </div>
-            	<br/>
-            </div>
         </div> <!-- panel-body -->
     </div> <!-- panel -->
 
@@ -110,4 +106,16 @@
 
         </div> <!-- panel-body -->
     </div> <!-- panel -->
+
+    <!-- Logout button -->
+    <div class="">
+        <a ng-disabled="busy"
+            class="btn btn-lg btn-danger"
+            ng-click="clickLogout()">
+            <localize key="Logout"></localize>
+            <span ng-style="{visibility: busy && 'visible' || 'hidden'}">
+                <i class="fa fa-spinner fa-spin"></i>
+            </span>
+        </a>
+    </div>
 </div>

@@ -1,0 +1,149 @@
+<div class="fullscreen_bg" ng-controller="profileCtrl">
+    <div class="container container-page form-signin">
+        <h1 class="form-signin-heading">
+            <span ng-if="isRegistration">Registration: </span>
+            Your Profile
+        </h1>
+
+        <div ng-if="isLocked">
+            <div ng-if="isRegistration"
+                class="container-stretched alert alert-danger"
+                style="margin-bottom: 20px">
+                Registration is locked.
+            </div>
+
+            <div ng-if="!isRegistration"
+                class="container-stretched alert alert-danger"
+                style="margin-bottom: 20px">
+                Profile is locked.
+            </div>
+        </div>
+
+        <div ng-style="{visibility: (!!errorMessage) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger"
+            style="margin-bottom: 1em">
+            <span>
+                unable to save profile</br>
+                your name, student-id and email must be unique
+            </span>
+            &nbsp;
+        </div>
+
+
+        <label>user name</label>
+
+        <!-- User Name input -->
+        <validated-text-input tabindex="1"
+            ng-disabled="isLocked"
+            class="container-stretched form-control form-input" 
+            placeholder="{{localize('userName')}}" required autofocus
+            validate-model="userData.name"
+            validate-error="userNameInvalid"
+            validate-result-invalid="true"> </validated-text-input>
+
+        <!-- Error Messages -->
+        <div 
+            ng-style="{visibility: (userNameInvalid) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger no-padding"
+            style="margin-bottom: 20px">
+            <localize
+                ng-show="userNameInvalid"
+                key="error.invalid.userName"></localize>
+            &nbsp;
+        </div>
+
+
+        <label>real name</label>
+
+        <!-- Real Name input -->
+        <validated-text-input tabindex="2" 
+            ng-disabled="isLocked"
+            class="container-stretched form-control form-input"
+            placeholder="{{localize('realName')}}"
+            validate-model="userData.realName"
+            validate-error="realNameInvalid"
+            validate-result-invalid="true"> </validated-text-input>
+
+        <!-- Error Messages -->
+        <div 
+            ng-style="{visibility: (realNameInvalid) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger no-padding"
+            style="margin-bottom: 20px">
+            <localize
+                ng-show="realNameInvalid"
+                key="error.invalid.realName"></localize>
+            &nbsp;
+        </div>
+
+
+        <label>student id</label>
+
+        <!-- Student ID input -->
+        <validated-text-input tabindex="3" 
+            ng-disabled="isLocked"
+            class="container-stretched form-control form-input" 
+            placeholder="{{localize('studentId')}}"
+            validate-model="userData.studentId"
+            validate-error="studentIdInvalid"
+            validation-function="validateStudentId"
+            validate-result-invalid="true"> </validated-text-input>
+
+
+        <!-- Error Messages -->
+        <div 
+            ng-style="{visibility: (studentIdInvalid) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger no-padding"
+            style="margin-bottom: 20px">
+            <localize
+                ng-show="studentIdInvalid"
+                key="error.invalid.studentId">></localize>
+            &nbsp;
+        </div>               
+
+
+        <label>email</label>
+
+        <!-- Email input -->
+        <validated-text-input tabindex="4" 
+            ng-disabled="isLocked"
+            class="container-stretched form-control form-input" 
+            placeholder="{{localize('email')}}"
+            validate-model="userData.email"
+            validate-error="emailInvalid"
+            validation-function="validateEmail"
+            validate-result-invalid="true"> </validated-text-input>
+
+
+        <!-- Error Messages -->
+        <div 
+            ng-style="{visibility: (emailInvalid) && 'visible' || 'hidden'}"
+            class="container-stretched alert alert-danger no-padding"
+            style="margin-bottom: 20px">
+            <localize
+                ng-show="emailInvalid"
+                key="error.invalid.email">></localize>
+            &nbsp;
+        </div>            
+
+
+        <!-- FB Group Join button -->
+        <a ng-disabled="" tabindex="5" class="container-stretched form-control btn btn-lg btn-primary btn-block" 
+            ng-click="addNewUserToFacebookGroupViaDialog()"
+            ng-enter="addNewUserToFacebookGroupViaDialog()">
+            <span><localize key="guest.facebookgroup" /></span>
+                <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        </a>        
+
+
+        <!-- Login button -->
+        <a ng-if="!isLocked"
+            ng-disabled="busy || userNameInvalid || realNameInvalid || studentIdInvalid || emailInvalid || (isRegistration && !inFBGroup)"
+            tabindex="6" class="container-stretched form-control btn btn-lg btn-fancy btn-block"
+            ng-click="clickUpdate()"
+            ng-enter="clickUpdate()">
+            <span><localize key="Update" /></span>
+                <span ng-style="{visibility: busy && 'visible' || 'hidden'}"><i class="fa fa-cog fa-spin"></i></span>
+        </a>
+
+    </div>
+</div>

@@ -86,7 +86,9 @@ module.exports = NoGapDef.component({
                 // enable these core components on the client initially
                 return this.Tools.requestClientComponents(
                     // Core stuff
-                    'AppConfig', 'User',
+                    'RuntimeError',
+                    'AppConfig', 
+                    'User',
 
                     // utilities
                     'CacheUtil',
@@ -95,6 +97,7 @@ module.exports = NoGapDef.component({
                     'Log',
                     'ValidationUtil',
                     'SimpleBooleanExpressions',
+                    'Auth',
 
                     // base UI elements
                     'UIMgr', 'Main'
@@ -103,6 +106,13 @@ module.exports = NoGapDef.component({
                 .then(function() {
                     // send default localizer to client
                     this.client.setDefaultLocalizer(Shared.Localizer.Default);
+                })
+
+                // then send other core components that depend on previous components to be ready
+                .then(function() {
+                    // return this.Tools.requestClientComponents(
+                    //     'UIActivityTracker'
+                    // );
                 });
             },
 
@@ -184,20 +194,32 @@ module.exports = NoGapDef.component({
             {
                 otherComponents: [
                     // core utilities
-                    'FileUpload',
-                    
-                    // Models
-                    'Group',
                 ],
 
                 pageComponents: [
                     'HomePage',
-                    'AccountPage',
-                    'GroupPage',
+                    'AccountPage'
                 ],
 
                 mayActivate: function() {
                     return Instance.User.currentUser && Instance.User.currentUser.displayRole >= UserRole.Student;
+                }
+            },
+
+
+            /**
+             * Logged in and unregistered users get access to these components
+             */     
+           {
+                otherComponents: [
+                    'FacebookApi'
+                ],
+
+                pageComponents: [
+                    'ProfilePage'
+                ],
+                mayActivate: function() {
+                    return Instance.User.currentUser && Instance.User.currentUser.displayRole >= UserRole.Unregistered;
                 }
             },
 
@@ -637,7 +659,7 @@ module.exports = NoGapDef.component({
                         Instance.User.currentUser && Instance.User.currentUser.gid;
 
                     // set config
-                    Instance.UIMgr.scope.config = Instance.AppConfig.cfg;
+                    Instance.UIMgr.scope.config = Instance.AppConfig.getAll();
                 },
 
                 /**

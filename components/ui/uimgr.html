@@ -55,12 +55,11 @@
         </i>
 
         <!-- Point badge -->
-        <span ng-if="button.badgeValue"
+        <span ng-if="button.badgeText"
             style="position: absolute; bottom: .5em; right: .2em;"
-            class="label label-badge label-{{ button.badgeValue > 0 ? 'success' : 'danger'}}"
-                ><span
-                >{{ button.badgeValue > 0 ? '+' : ''}}{{button.badgeValue}}</span
-        ></span>
+            class="label label-badge label-{{ button.badgeType }}"
+                ><span>{{ button.badgeText }}</span></span>
+                <!-- <span>{{ button.badgeText > 0 ? '+' : ''}}{{button.badgeText}}</span> -->
       </a>
     </li>
   </script>

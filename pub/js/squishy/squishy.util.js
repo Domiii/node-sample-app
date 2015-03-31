@@ -1061,10 +1061,12 @@ squishy._Event = squishy.createClass(
          * Calls all event handlers of this event with all given arguments, and this = the object given in the event constructor.
          */
         fire: function() {
+            var promises = [];
             for (var i = 0; i < this.listeners.length; ++i) {
                 var listener = this.listeners[i];
-                listener.apply(this, arguments);
+                promises.push(listener.apply(this, arguments));
             }
+            return Promise.all(promises);
         }
     }
 );

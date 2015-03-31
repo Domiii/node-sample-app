@@ -17,6 +17,10 @@ module.exports = NoGapDef.component({
                 return this.defaultConfig[key];
             },
 
+            getAll: function() {
+                return this.defaultConfig;
+            },
+
             Private: {
                 Caches: {
                     appConfig: {
@@ -27,7 +31,7 @@ module.exports = NoGapDef.component({
                         members: {
                             getObjectNow: function(queryInput, ignoreAccessCheck) {
                                 if (isNaN(queryInput)) {
-                                    return Promise.reject('error.invalid.request');
+                                    return Promise.reject(makeError('error.invalid.request'));
                                 }
 
                                 return this.indices.byId[queryInput];
@@ -63,7 +67,6 @@ module.exports = NoGapDef.component({
 
                     name: Sequelize.STRING(100),
 
-                    groupsLocked: {type: Sequelize.INTEGER.UNSIGNED},
                 },{
                     freezeTableName: true,
                     tableName: 'bjt_user',

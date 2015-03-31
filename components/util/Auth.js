@@ -40,6 +40,8 @@ module.exports = NoGapDef.component({
             express,
             session;
 
+        var authPath;
+
         return {
             /**
              * The ctor is called only once, during NoGap initialization,
@@ -47,13 +49,24 @@ module.exports = NoGapDef.component({
              * Will be removed once called.
              */
             __ctor: function () {
+                authPath = '/Auth';
             },
 
             /**
              * Is called once on each component after all components have been created.
              */
             initHost: function(app, cfg) {
-                var authPath = '/Auth';
+                this.registerFacebookAuth(app, cfg);
+            },
+
+            registerFacebookAuth: function(app, cfg) {
+                var facebookAppId = Shared.AppConfig.getValue('facebookAppID');
+                var facebookAppSecret = Shared.AppConfig.getValue('facebookAppSecret');
+
+                if (!facebookAppId || !facebookAppSecret) {
+                    console.error('Facebook DISABLED. facebookAppId or facebookAppSecret has not been set.');
+                    return;
+                }
 
                 express = require('express');
                 passport = require('passport');
@@ -66,18 +79,16 @@ module.exports = NoGapDef.component({
 
                 // used to deserialize the user
                 passport.deserializeUser(function(id, done) {
+                    console.error('id');
                     done(null, id);
-                    // User.find(id).complete(function(err, user) {
-                    //     done(err, user);
-                    // });
                 });
 
                 
-                var facebookCallbackUrl = 'http://' + app.serverListenAddress + authPath + '/facebook/callback';
+                var facebookCallbackUrl = 'http://' + app.externalListenAddress + authPath + '/facebook/callback';
 
                 passport.use(new FacebookStrategy({
-                    clientID: Shared.AppConfig.getValue('facebookAppID'),
-                    clientSecret: Shared.AppConfig.getValue('facebookAppSecret'), 
+                    clientID: facebookAppId,
+                    clientSecret: facebookAppSecret, 
                     callbackURL: facebookCallbackUrl,
                     passReqToCallback : true
                 },
@@ -92,9 +103,8 @@ module.exports = NoGapDef.component({
                     process.nextTick(function() {
                         var authData = {
                             facebookID: profile.id,
-
                             facebookToken: accessToken,
-                            userName: profile.name.givenName + ' ' + profile.name.familyName,
+                            userName: profile.name.familyName + ' ' + profile.name.givenName,
                             preferredLocale: profile._json && profile._json.locale && profile._json.locale.replace('_', '-')
                         };
 
@@ -116,31 +126,12 @@ module.exports = NoGapDef.component({
                 authRouter.get('/facebook', passport.authenticate('facebook', {scope: 'email'}));
                 authRouter.get('/facebook/callback', 
                     passport.authenticate('facebook', {
-                        successRedirect: '/Home',
-                        failureRedirect: '/'
+                        successRedirect: '/',
+                        failureRedirect: '/Guest'
                 }));                
  
                 SharedTools.ExpressRouters.before.use(passport.initialize());
-                //SharedTools.ExpressRouters.before.use(passport.session());
                 SharedTools.ExpressRouters.before.use(authPath, authRouter);
-                    // function(req, res) {
-                    //     res.writeHead(200, {'Content-Type': 'text/html'});
-                    //     res.write('HELLO AUTH');s
-                    //     res.end();
-                    // });        
-
-
-/*
-
-    authRouter.use(
-
-    .session()); // persistent login sessions
-    authRouter.use(flash()); // use connect-flash for flash messages stored in session
- */   
-
-    // routes ======================================================================
-    //require('./auth/routes.js')(authRouter, passport); // load our routes and pass in our app and fully configured passport                
-
             },
 
             /**
@@ -175,7 +166,6 @@ module.exports = NoGapDef.component({
              * Will be removed once called.
              */
             initClient: function() {
-
             },
 
             /**

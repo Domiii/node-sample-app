@@ -17,7 +17,6 @@
     "express-session": "^1.0.4",
     "express-mysql-session": "0.0.12",
     "cookie": "*",
-    "multer": "*",
     "mime": "*",
 
     "process": "*",

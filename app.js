@@ -50,7 +50,15 @@ GLOBAL.moment = require(publicFolder + 'lib/moment');
 require(publicFolder + 'js/squishy/squishy');
 
 // Use an improved `toString` method.
-Object.prototype.toString = function() { return squishy.objToString(this, true, 3); };
+Object.prototype.toString = function() { 
+    var str = squishy.objToString(this, true, 3);
+    var maxLen = 300;
+    if (str.length > maxLen) {
+        // truncate to at most maxLen characters
+        str = str.substring(0, maxLen) + '...';
+    }
+    return str;
+};
 
 
 // ####################################################################################
@@ -176,7 +184,7 @@ Promise.resolve()
             res.write('<pre>' + err.stack + '</pre>');
         }
         else {
-            res.write('Sorry! Something went wrong :(');
+            res.write('error.internal');
         }
         res.end();
     });
@@ -192,6 +200,7 @@ Promise.resolve()
 .then(function startApp() {
     for (var i = 0; i < hosts.length; ++i) {
         var host = hosts[i];
+        (function(host) {
         app.listen(port, host, function() {
             console.log(appConfig.title + ' is online at: ' + (host + ':' + port));
         }).on('error', function (err) {
@@ -199,6 +208,7 @@ Promise.resolve()
             // TODO: Try to re-start
             console.error(new Error('Server connection error (on ' + (host + ':' + port) + '): ' + (err.stack || err.message || err)).stack);
         });
+        })(host);
     }
 })
 .catch(function(err) {
