@@ -23,7 +23,7 @@
 	 */
 	var ScopeMembers = {
 	    /**
-	     * Call $scope.$apply(fn), if it is safe to do so
+	     * Call $scope.$digest(fn), if it is safe to do so
 	     *  (i.e. digest or apply cycle is currently not executing).
 	     */
 	    safeDigest: function(fn) {
@@ -71,7 +71,10 @@
 	    digestAndMeasure: function(fn) {
 	    	var startTime = performance.now();
 	    	this.$digest(fn); 
-	    	console.log(performance.now() - startTime);
+	    	var ms = performance.now() - startTime;
+	    	if (ms > 15) {
+	    		console.log(ms);
+	    	}
 	    },
 
 	    /**

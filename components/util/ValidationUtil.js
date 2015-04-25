@@ -91,7 +91,7 @@ module.exports = NoGapDef.component({
                 // validated-text-input directive
                 // for an example of a similar directive,
                 //   see: http://stackoverflow.com/questions/16546771/how-do-i-pass-multiple-attributes-into-an-angular-js-attribute-directive
-                app.lazyDirective('validatedTextInput', function($compile) { return {
+                app.lazyDirective('validatedTextInput', ['$compile', function($compile) { return {
                     /**
                      * It can only be used as an Element
                      */
@@ -125,7 +125,7 @@ module.exports = NoGapDef.component({
                         setTimeout(revalidate);
                     }
 
-                };});
+                };}]);
             },
 
             /**

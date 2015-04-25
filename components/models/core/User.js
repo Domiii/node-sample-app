@@ -1,6 +1,7 @@
 
 /**
  * All utilities required to verify and manage users.
+ * TODO: Separate Account + User management
  */
 "use strict";
 
@@ -100,6 +101,42 @@ module.exports = NoGapDef.component({
                         },
 
                         members: {
+                            getObjectNow: function(queryInput, ignoreAccessCheck) {
+                                if (!this.hasMemorySet()) return null;
+
+                                if (!queryInput) return null;
+                                if (!ignoreAccessCheck && !this.Instance.User.isStaff()) {
+                                    // currently, this query cannot be remotely called by client
+                                    return null;
+                                }
+
+                                if (queryInput.uid) {
+                                    return this.byId[queryInput.uid];
+                                }
+                                else if (queryInput.facebookID) {
+                                    return this.indices.facebookID.get(queryInput.facebookID);
+                                }
+                                else if (queryInput.name) {
+                                    return this.indices.name.get(queryInput.name);
+                                }
+                                return null;
+                            },
+
+                            getObjectsNow: function(queryInput) {
+                                if (!this.hasMemorySet()) return null;
+                                if (queryInput && queryInput.uid instanceof Array) {
+                                    var result = [];
+                                    for (var i = 0; i < queryInput.uid.length; ++i) {
+                                        var uid = queryInput.uid[i];
+                                        var user = this.byId[uid];
+                                        if (user) {
+                                            result.push(user);
+                                        }
+                                    };
+                                    return result
+                                }
+                                return this.list;
+                            },
                         }
                     }
                 },
@@ -209,43 +246,6 @@ module.exports = NoGapDef.component({
                 Caches: {
                     users: {
                         members: {
-                            getObjectNow: function(queryInput, ignoreAccessCheck) {
-                                if (!this.hasMemorySet()) return null;
-
-                                if (!queryInput) return null;
-                                if (!ignoreAccessCheck && !this.Instance.User.isStaff()) {
-                                    // currently, this query cannot be remotely called by client
-                                    return null;
-                                }
-
-                                if (queryInput.uid) {
-                                    return this.byId[queryInput.uid];
-                                }
-                                else if (queryInput.facebookID) {
-                                    return this.indices.facebookID.get(queryInput.facebookID);
-                                }
-                                else if (queryInput.name) {
-                                    return this.indices.name.get(queryInput.name);
-                                }
-                                return null;
-                            },
-
-                            getObjectsNow: function(queryInput) {
-                                if (!this.hasMemorySet()) return null;
-                                if (queryInput && queryInput.uid instanceof Array) {
-                                    var result = [];
-                                    for (var i = 0; i < queryInput.uid.length; ++i) {
-                                        var uid = queryInput.uid[i];
-                                        var user = this.byId[uid];
-                                        if (user) {
-                                            result.push(user);
-                                        }
-                                    };
-                                    return result
-                                }
-                                return this.list;
-                            },
-
                             onWrapObject: function(user) {
                             },
 
@@ -744,10 +744,6 @@ module.exports = NoGapDef.component({
                 }
             },
 
-            getUser: function(uid) {
-                return this.users.getObjectNow(uid);
-            },
-
             /**
              * Called when currentUser or values of currentUser changed.
              */
@@ -764,7 +760,11 @@ module.exports = NoGapDef.component({
 
             Public: {
                 setCurrentUser: function(uid) {
-                    this.currentUser = uid && this.getUser(uid);
+                    this.currentUser = uid && this.users.getObjectNowById(uid);
+                    if (uid && !this.currentUser) {
+                        console.error('Cache `users` failed: Could not look up currentUser!');
+                        debugger;
+                    }
 
                     this.onCurrentUserChanged(true);
                 }

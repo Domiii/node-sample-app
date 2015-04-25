@@ -79,35 +79,6 @@ i {
   background-color: Cornsilk; 
 }
 
-
-/* ########################################################################################## */
-/* Padding, Border, Margin */
-
-.no-padding {
-  padding: 0 !important;
-}
-
-.some-padding {
-  padding: 10px;
-}
-
-.no-margin {
-  margin: 0 !important;
-}
-
-.some-margin {
-  margin: 10px;
-}
-
-.no-border {
-  border: 0 !important;
-}
-
-/*.dropdown-toggle::after {
-  content: ""
-}*/
-
-
 /* ########################################################################################## */
 /* General stuff */
 
@@ -158,6 +129,11 @@ html {
 /* Slightly non-white color for default button */
 .btn-default { 
   background-color: #F4FFFF;
+} 
+
+/*make things white when needed*/
+.background-white { 
+  background-color: #FFFFFF !important;
 } 
 
 .fat-border {
@@ -252,11 +228,11 @@ fieldset[disabled] .btn-fancy.active {
 .form-signin .form-signin-heading, .form-signin {
   margin-bottom: 1em;
 }
-.form-input {
-  padding: 1em;
-}
 .form-signin .form-control:focus {
   z-index: 2;
+}
+.form-control {
+  height: auto;
 }
 .form-signin-heading {
   text-align: center;
@@ -271,9 +247,10 @@ fieldset[disabled] .btn-fancy.active {
 .container-page {
   /* This padding is usually at the bottom of the .nav menu */
   /* But we removed it, because some pages don't need/want that empty space */
-  padding-top: 15px;
+  /*padding-top: 15px;
   padding-left: 20px;
-  padding-right: 20px;
+  padding-right: 20px;*/
+  padding: 0;
 }
 
 
@@ -439,35 +416,74 @@ title, tt, u, var {
 }
 
 
-/* ########################################################################################## */
-/* Space */
-
-hr {
-  border-top-width: 3px;
-  border-color: #A3A3A3;
-}
-
-/**
- * Use on a div to create extra space between two elements
- */
-.vertical-space {
-  clear: both;
-  width: 100%;
-  height: 1em;
-  /*background-color:red;*/
-}
-
 
 /* ########################################################################################## */
-/* Other */
+/* Padding, Border, Margin */
 
-/**
- * @see http://stackoverflow.com/questions/18730116/twitter-bootstrap-3-0-how-do-i-badge-badge-important-now
- */
-.label-badge {
-  border-radius: 1em;
-  padding: 0;
-  padding-left: .3em;
-  padding-right: .3em;
-  line-height: 1.4em;
+.no-padding {
+  padding: 0 !important;
+}
+
+.some-padding {
+  padding: 10px;
+}
+
+.no-margin {
+  margin: 0 !important;
+}
+
+.some-margin {
+  margin: 10px;
+}
+
+.no-border {
+  border: 0 !important;
+}
+
+/*.dropdown-toggle::after {
+  content: ""
+}*/
+
+
+
+/* ########################################################################################## */
+/* Colors */
+
+.red {
+  color: red;
+}
+.green {
+  color: green;
+}
+.orange {
+  color: orange;
+}
+.purple {
+  color: purple;
+}
+
+.lightgreen{
+  color: lightgreen;
+}
+
+.darkred {
+  color: darkred;
+}
+
+.lightblue {
+  color: lightblue;
+}
+.lightgrey {
+  color: lightgrey;
+}
+
+.darkdarkgrey {
+  color: #666666;
+}
+
+.gold {
+  color: gold;
+}
+.darkgold {
+  color: #DAA520;
 }

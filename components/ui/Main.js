@@ -265,7 +265,7 @@ module.exports = NoGapDef.component({
             // localizer directive
             app.directive('localize', function() {
                 var localizer = Instance.Localizer.Default;
-                function linkFun($scope, element, attrs) {
+                function linkFun($scope, $element, $attrs) {
                     AngularUtil.decorateScope($scope);
                     
                     function lookupTranslation() {
@@ -294,25 +294,22 @@ module.exports = NoGapDef.component({
                         //     });
                         //     return;
                         // }
-
-                        if (attrs.key) {
+                        if ($attrs.key) {
                             // actual translation
-                            var key = attrs.key;
-                            var locale = attrs.locale;
+                            var key = $attrs.key;
+                            var locale = $attrs.locale;
                             
-                            if (attrs.args) {
-                                $scope.bindAttrExpression(attrs, 'args', function(newArgs) {
-                                    if (!newArgs) return;
-
-                                    $scope.translation = localizer.lookUpLocale(locale, key, newArgs);                                
-                                });
+                            $scope.translation = localizer.lookUpLocale(locale, key, $scope.args);
                             }
                             else {
-                                $scope.translation = localizer.lookUpLocale(locale, key);
+                            $scope.translation = '';
                             }
+
+                        if ($attrs.asHtml) {
+                            $element.html($scope.translation);
                         }
                         else {
-                            $scope.translation = '';
+                            $element.text($scope.translation);
                         }
                     }
 
@@ -320,15 +317,19 @@ module.exports = NoGapDef.component({
                     lookupTranslation();
 
                     // re-compute value if locale or args change
-                    attrs.$observe('key', lookupTranslation);
-                    attrs.$observe('args', lookupTranslation);
+                    $attrs.$observe('key', lookupTranslation);
+                    $scope.bindAttrExpression($attrs, 'args', function(newArgs) {
+                        if (!newArgs) return;
+
+                        lookupTranslation();
+                    });
                     $scope.$watch('locale', lookupTranslation);
                 }
 
                 return {
                     restrict: 'AE',
-                    replace: true,
-                    template: '<span localized="1">{{translation}}</span>',
+                    replace: false,
+                    //template: '<span localized="1">{{translation}}</span>',
                     link: linkFun,
                     scope: true
                 };
@@ -669,7 +670,7 @@ module.exports = NoGapDef.component({
                         if (privsChanged) {
                         // tell UIMgr module to re-check which buttons are enabled and
                         //  whether the user may stay on current page etc.
-                            Instance.UIMgr.onCurrentUserChanged();
+                            Instance.UIMgr.onCurrentUserChanged(privsChanged);
                         }
                     }.bind(this));
                 }

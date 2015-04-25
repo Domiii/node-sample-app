@@ -3,6 +3,15 @@
 
 //define([], function() {
 
+/**
+ * Because it is so annoying and universally used, we make this one global.
+ * @see http://stackoverflow.com/questions/115548/why-is-isnannull-false-in-js
+ */
+squishy.getGlobalContext().isNaNOrNull = function(x) {
+    return x === null || isNaN(x);
+};
+
+
 // ##############################################################################################################
 // Debugging
 
@@ -648,11 +657,11 @@ squishy.getCurrentTimeMillisHighRes = (function() {
     else if (typeof(window) !== 'undefined') {
         var performance = window.performance || window.webkitPerformance || window.msPerformance || window.mozPerformance;
         if (performance) {
-        if (performance.now) {
-            return function() { return performance.now(); };
-        }
-        else if (performance.webkitNow) {
-            return function() { return performance.webkitNow(); };
+            if (performance.now) {
+                return function() { return performance.now(); };
+            }
+            else if (performance.webkitNow) {
+                return function() { return performance.webkitNow(); };
             }
         }
     }
@@ -733,6 +742,10 @@ squishy.createClass = function(ctor, classMembers, staticMembers) {
         ctor = function() {};
     }
 
+    // ctor is also the class definition
+    ctor = ctor || function() {};
+    ctor.prototype = classMembers || {};
+
     // only allow function members
     for (var key in classMembers) {
         var member = classMembers[key];
@@ -742,11 +755,6 @@ squishy.createClass = function(ctor, classMembers, staticMembers) {
                 '`. Non-function members must either be static or instantiated in the ctor.');
         }
     }
-
-    // ctor is also the class definition
-    ctor = ctor || function() {};
-    ctor.prototype = classMembers || {};
-
     if (staticMembers) {
         // merge static members into class:
         for (var key in staticMembers) {

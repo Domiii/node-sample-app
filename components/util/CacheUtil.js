@@ -5,9 +5,9 @@
  *
  * =Use caches=
  * There is no cache coherence (i.e. no data binding)
- * All of the cache data needs to be sent/requested explicitely, using:
- *  -> Host: `sendObject[s]Update` to send data to Client
- *  -> Client: `readObject[s]` to request data from Host
+ * All of the cache data needs to be sent/requested explicitely, using: `readObject[s]` or `getObject[s]`.
+ * `readObject[s]` does generally retrieve less already cached objects. However, there are currently no guarantees, other than consistency.
+ * 
  *
  * =Declare caches=
  * 1. A component can declare caches using the `Base.Private.Caches` property.
@@ -405,10 +405,6 @@ module.exports = NoGapDef.component({
                      * `initialize` function is called right after construction.
                      */
                     initialize: function(cache) {
-                        Object.defineProperty(this, 'Instance', { 
-                            enumerable: false,
-                            value: cache.Instance
-                        });
                     },
 
                     /**
@@ -756,7 +752,7 @@ module.exports = NoGapDef.component({
                     if (!this.hasMemorySet()) return null;
 
                     // TODO: Support query language to also support general queryInputs on the cache
-                    if (isNaN(queryInput)) {
+                    if (isNaNOrNull(queryInput)) {
                         throw new Error('Invalid call to `getObjectNow` has input: ' + queryInput);
                     }
                     return this.byId[queryInput];        // look up by id
@@ -885,7 +881,7 @@ module.exports = NoGapDef.component({
                     if (!this.hasMemorySet()) return;
 
                     var id;
-                    if (isNaN(objectOrId)) {
+                    if (isNaNOrNull(objectOrId)) {
                         // argument is not a number: We assume object is given
                         // lookup id
                         id = this.idGetter.call(this, objectOrId)
@@ -1132,6 +1128,14 @@ module.exports = NoGapDef.component({
                         return object;
                     },
 
+
+                    /**
+                     * Note: Host only
+                     */
+                    onQueriedObject: function(object) {
+                        return object;
+                    },
+
                     /**
                      * Called after objects have just been fetched from DB.
                      * Can be overwritten for customized post-query processing.
@@ -1152,7 +1156,7 @@ module.exports = NoGapDef.component({
                      */
                     compileReadObjectQuery: function(queryInput, ignoreAccessCheck) {
                         // get object from table
-                        if (isNaN(queryInput)) {
+                        if (isNaNOrNull(queryInput)) {
                             // three possibilities:
                             // 1. Your code has a bug and you forgot to override `compileReadObjectQuery` to handle custom queryInput
                             // 2. Your code has a bug and initiated a request with invalid queryInput
@@ -1215,7 +1219,7 @@ module.exports = NoGapDef.component({
                                 'but that requires overriding `compileObjectUpdate`.');
                             return Promise.reject('error.internal');
                         }
-                        else if (isNaN(objId = this.idGetter(updateData))) {
+                        else if (isNaNOrNull(objId = this.idGetter(updateData))) {
                             // `updateData` must contain id
                             return Promise.reject(makeError('error.invalid.request'));
                         }
@@ -1281,7 +1285,7 @@ module.exports = NoGapDef.component({
                         var id;
                         var idGetter = this.idGetter;
                         
-                        if (isNaN(objectOrId)) {
+                        if (isNaNOrNull(objectOrId)) {
                             // argument is not a number: We assume object is given
                             // -> lookup id
                             id = idGetter.call(this, objectOrId)
@@ -1383,6 +1387,7 @@ module.exports = NoGapDef.component({
                             else {
                                 return Promise.resolve(SequelizeUtil.getValuesFromRows(resultRow, queryData && queryData.include))
                                 .bind(this)
+                                .then(this.onQueriedObject)
                                 .then(function(newObject) {
                                     if (!newObject) return null;
 
@@ -1408,17 +1413,17 @@ module.exports = NoGapDef.component({
 
                         // then, query actual data from DB
                         .then(function(queryData) {
-                            return this._findObjects(queryData, queryInput, sendToClient);
+                            return this.findObjects(queryData, queryInput, sendToClient);
                         });
                     },
 
-                    _findObjects: function(queryData, queryInput, sendToClient) {
+                    findObjects: function(queryData, queryInput, sendToClient) {
                         var model = this.getModel();
-                        console.assert(model && model.find,
+                        console.assert(model && model.findAll,
                             '`getModel` did not return a valid Sequelize model.');
 
                         if (this.hasMemorySet()) {
-                            // NOTE: one of the single most important performance optimization in this entire code
+                            // NOTE: This is one of the single most important performance optimization in this entire code
                             var lastUpdatedAt = this._memorySet.getLastUpdatedAt(queryData);
                             if (lastUpdatedAt) {
                                 // only query objects that we did not query already!
@@ -1436,6 +1441,7 @@ module.exports = NoGapDef.component({
                             //return resultRows;
                             return SequelizeUtil.getValuesFromRows(resultRows, queryData && queryData.include);
                         })
+                        .map(this.onQueriedObject)
 
                         // wrap, call events, then return result
                         .then(function(newObjects) {
@@ -1468,11 +1474,11 @@ module.exports = NoGapDef.component({
 
                         .then(SequelizeUtil.getValuesFromRows)
                         .bind(this)
+                        .then(this.onCreateObject)
                         .then(function(newObj) {
                             // update caches
                             return this.applyChange(newObj, queryInput, dontSendToClient);
-                        })
-                        .then(this.onCreateObject);
+                        });
                     },
 
                     // findOrCreateObject: function(options, queryInput) {
@@ -1510,7 +1516,7 @@ module.exports = NoGapDef.component({
                             var id = this.idGetter(objValues) || (selector && selector.where && this.idGetter(selector.where));
                             if (!selector || !selector.where) {
                                 // if no where is given, look up id
-                                if (isNaN(id)) {
+                                if (isNaNOrNull(id)) {
                                     return Promise.reject(makeError('error.invalid.request', 'missing or invalid id in `updateObject` for cache ' + this.name));
                                 }
                                 selector = selector || {};
@@ -1546,7 +1552,7 @@ module.exports = NoGapDef.component({
                         .then(function(objId) {
                             //var selector = objectDeleteData.selector;
 
-                            if (isNaN(objId)) {
+                            if (isNaNOrNull(objId)) {
                                 return Promise.reject(makeError('error.internal', '`compileObjectDelete` did not return an id for cache ' + this.name));
                             }
 
@@ -1754,6 +1760,11 @@ module.exports = NoGapDef.component({
                         // TODO: In order to use `since` here, we need the server's updatedAt for the given translated queryData
                         //      If we go by queryInput instead of queryData, we will end up missing data,
                         //      in case that compileReadObjectsQuery is not time-independent.
+
+                        // TODO: Also, we cannot rely on updatedAt since it does not change when associations are updated
+
+                        // TODO: Deletions also need to be catched
+
                         //var since = this._memorySet.getLastUpdatedAt(queryInput);
                         var since = null;
 
@@ -1762,7 +1773,6 @@ module.exports = NoGapDef.component({
                         return this.Instance.CacheUtil.host.fetchObjects(this.name, queryInput, since)
                         .bind(this)
                         .then(function(objects) {
-                            //console.log(this.name + ' ' + (objects && objects.length));
                             return this._applyChanges(objects, queryInput);
                         })
                         .catch(function(err) {
@@ -1832,7 +1842,7 @@ module.exports = NoGapDef.component({
                      */
                     deleteObject: function(objectOrId, queryInput) {
                         var id;
-                        if (isNaN(objectOrId)) {
+                        if (isNaNOrNull(objectOrId)) {
                             // argument is not a number: We assume object is given
                             // lookup id
                             id = this.idGetter.call(this, objectOrId)
@@ -1872,6 +1882,74 @@ module.exports = NoGapDef.component({
                 this._installCacheEventHandlers(component);
             },
 
+            /**
+             * Request all kinds of missing data in a single batch.
+             * NOTE: Only requests by id are supported.
+             * NOTE 2: All data providers used here must support queries by "array of ids".
+             */
+            requestDataBatch: function(entries, collectIdsByDataProviderName) {
+                var requestedIdsByDataProviderName = {};
+                var affectedEntries = [];
+                var hasDataArrived;
+
+                function requestData(dataProviderName, id) {
+                    var requestedIds = requestedIdsByDataProviderName[dataProviderName] = 
+                        requestedIdsByDataProviderName[dataProviderName] || {};
+
+                    var dataProvider = Instance.CacheUtil.getDataProvider(dataProviderName);
+                    if (!dataProvider) {
+                        throw new Error('Invalid dataProviderName given: ' + dataProviderName);
+                    }
+                    if (!dataProvider.getObjectNowById(id)) {
+                        // not present yet
+                        requestedIds[id] = true;            // make sure, data is only fetched once
+                        hasDataArrived = false;             // need to fetch data
+                    }
+                };
+
+                // collect all requests
+                // NOTE: Currently, we can only request objects from dataProviders, by list of ids
+                for (var i = 0; i < entries.length; ++i) {
+                    var entry = entries[i];
+                    if (entry.hasDataArrived || entry._hasDataBeenRequested) continue;
+                    
+                    entry._hasDataBeenRequested = true;
+
+                    hasDataArrived = true;                  // assume data is already there
+
+                    collectIdsByDataProviderName(entry, requestData);
+
+                    entry.hasDataArrived = hasDataArrived;
+                    if (!hasDataArrived) {
+                        affectedEntries.push(entry);
+                    }
+                }
+
+                // send out all requests
+                var dataRequests = [];
+                for (var dataProviderName in requestedIdsByDataProviderName) {
+                    var requestedIds = requestedIdsByDataProviderName[dataProviderName];
+                    var dataProvider = this.getDataProvider(dataProviderName);
+                    var idProperty = dataProvider.idProperty;
+                    if (!idProperty) throw new Error('Invalid DataProvider `' + dataProviderName  +
+                        '` did not provide `idProperty` ' + 
+                        '(necessary when referenced in Notifications)');
+                    var requestInput = {};
+                    requestInput[idProperty] = Object.keys(requestedIds);
+
+                    // send out request
+                    dataRequests.push(dataProvider.readObjects(requestInput));
+                }
+
+                return Promise.all(dataRequests)
+                .then(function(responses) {
+                    // data has now arrived!
+                    for (var i = 0; i < affectedEntries.length; ++i) {
+                        var entry = affectedEntries[i];
+                        entry.hasDataArrived = true;
+                    };
+                });
+            },
 
             /**
              * Client commands can be directly called by the host

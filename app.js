@@ -4,14 +4,6 @@
 "use strict";
 
 
-// ####################################################################################
-// Node core settings
-
-// fix stacktrace length
-// see: http://stackoverflow.com/questions/7697038/more-than-10-lines-in-a-node-js-stack-error
-Error.stackTraceLimit = 20;
-//Error.stackTraceLimit = Infinity;
-
 
 // ####################################################################################
 // Basic libraries
@@ -93,6 +85,20 @@ GLOBAL.Promise = Sequelize.Promise || require('bluebird');
 // setup long stack traces
 GLOBAL.Promise.longStackTraces();
 
+// ####################################################################################
+// Node core settings
+
+// fix stacktrace length
+// see: http://stackoverflow.com/questions/7697038/more-than-10-lines-in-a-node-js-stack-error
+Error.stackTraceLimit = 100;    // TODO: For some reason, Bluebird node ignores us here
+//Error.stackTraceLimit = Infinity;
+
+
+
+// ####################################################################################
+// Get started
+
+
 // start express app
 var app = express();
 app.set('title', appConfig.title);
@@ -173,7 +179,7 @@ Promise.resolve()
 
     // error handler
     app.use(function(err, req, res, next) {
-        var status = err.status || (!isNaN(err) && err) || 500;
+        var status = err.status || (!isNaNOrNull(err) && err) || 500;
         console.error('Error during request (' + status + '): ' + (err.stack || new Error(err).stack));
         
         res.writeHead(status, {'Content-Type': 'text/html'});
@@ -201,13 +207,13 @@ Promise.resolve()
     for (var i = 0; i < hosts.length; ++i) {
         var host = hosts[i];
         (function(host) {
-        app.listen(port, host, function() {
-            console.log(appConfig.title + ' is online at: ' + (host + ':' + port));
-        }).on('error', function (err) {
-            // HTTP listen socket got closed unexpectedly...
-            // TODO: Try to re-start
-            console.error(new Error('Server connection error (on ' + (host + ':' + port) + '): ' + (err.stack || err.message || err)).stack);
-        });
+            app.listen(port, host, function() {
+                console.log(appConfig.title + ' is online at: ' + (host + ':' + port));
+            }).on('error', function (err) {
+                // HTTP listen socket got closed unexpectedly...
+                // TODO: Try to re-start
+                console.error(new Error('Server connection error (on ' + (host + ':' + port) + '): ' + (err.stack || err.message || err)).stack);
+            });
         })(host);
     }
 })

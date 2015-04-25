@@ -109,8 +109,10 @@ module.exports = NoGapDef.component({
                     var isException = err && err.stack;
 
                     if (isException) {
+                        // extract some extra info from the error
                         var parent = err.parent;    // access the underlying error here
-                        var sql = (parent && parent.sql) || err.sql;
+                        var sql = parent && parent.sql || err.sql;
+                        console.error(squishy.objToString(err, true, 4));
                         var sqlMessage = sql && 'SQL error `' + sql + ']';
                         if (!message) {
                             if (sql) {

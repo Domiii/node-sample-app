@@ -30,9 +30,6 @@
 
     "nogap": "*",
     "http-proxy": "*",
-
-    "jsdom-nogyp": "*",
-    "xmldom": "*",
     
     "fb": "*",
     "passport": "*",

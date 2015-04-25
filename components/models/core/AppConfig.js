@@ -30,7 +30,7 @@ module.exports = NoGapDef.component({
 
                         members: {
                             getObjectNow: function(queryInput, ignoreAccessCheck) {
-                                if (isNaN(queryInput)) {
+                                if (isNaNOrNull(queryInput)) {
                                     return Promise.reject(makeError('error.invalid.request'));
                                 }
 
