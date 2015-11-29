@@ -223,7 +223,7 @@ module.exports = NoGapDef.component({
                     lastNotificationCheck: Sequelize.DATE
                 },{
                     freezeTableName: true,
-                    tableName: 'bjt_user',
+                    tableName: 'user',
                     classMethods: {
                         onBeforeSync: function(models) {
                         },
