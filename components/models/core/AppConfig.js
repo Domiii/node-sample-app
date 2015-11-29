@@ -69,7 +69,7 @@ module.exports = NoGapDef.component({
 
                 },{
                     freezeTableName: true,
-                    tableName: 'bjt_user',
+                    tableName: 'app_config',
                     classMethods: {
                         onBeforeSync: function(models) {
                         },
