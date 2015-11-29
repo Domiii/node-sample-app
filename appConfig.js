@@ -47,8 +47,10 @@ module.exports = {
     // Facebook settings
 
     // Test FB App settings
-    'facebookAppID': '392918107554514',
-    'facebookAppSecret': '4ecaef98a8828386f5e2260e03f4a685',
+    'auth': {
+        'facebookAppID': '392918107554514',
+        'facebookAppSecret': '4ecaef98a8828386f5e2260e03f4a685'
+    },
     
 
     // ########################################################################################################################
