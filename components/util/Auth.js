@@ -60,11 +60,13 @@ module.exports = NoGapDef.component({
             },
 
             registerFacebookAuth: function(app, cfg) {
-                var facebookAppId = Shared.AppConfig.getValue('facebookAppID');
-                var facebookAppSecret = Shared.AppConfig.getValue('facebookAppSecret');
+                var auth = Shared.AppConfig.getValue('auth');
+                var facebookAppId = auth && auth.facebookAppID;
+                var facebookAppSecret = auth && auth.facebookAppSecret;
 
                 if (!facebookAppId || !facebookAppSecret) {
-                    console.error('Facebook DISABLED. facebookAppId or facebookAppSecret has not been set.');
+                    console.error('Google Auth DISABLED. ' +
+                        'auth.facebookAppID or auth.facebookAppSecret has not been set in appConfig.');
                     return;
                 }
 
