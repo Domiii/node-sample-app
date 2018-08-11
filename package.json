@@ -10,7 +10,7 @@
     "express": "~4.1.0",
     "static-favicon": "~1.0.0",
     "cookie-parser": "~1.0.1",
-    "debug": "~0.7.4",
+    "debug": "*",
     "mysql": "*",
     "sequelize": "~2.0.0",
     "express-json": "*",
